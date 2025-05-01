@@ -97,9 +97,9 @@ Before assembling, consider testing that the PCB works properly.
 From the `/fpga` directory, use FuseSoC to build the bitstreams:
 
 ```sh
-$ fusesoc --cores-root . --work-root=build/boot --target=handheld_rev2 --flag=boot elipsitz:gameboy:gameboy
-$ fusesoc --cores-root . --work-root=build/gameboy --target=handheld_rev2 --flag=gameboy elipsitz:gameboy:gameboy
-$ fusesoc --cores-root . --work-root=build/gba --target=handheld_rev2 --flag=gba elipsitz:gameboy:gameboy
+$ fusesoc --cores-root . run --work-root=build/boot --target=handheld_rev2 --flag=module_boot elipsitz:gameboy:gameboy
+$ fusesoc --cores-root . run --work-root=build/gameboy --target=handheld_rev2 --flag=module_gameboy elipsitz:gameboy:gameboy
+$ fusesoc --cores-root . run --work-root=build/gba --target=handheld_rev2 --flag=module_gba elipsitz:gameboy:gameboy
 ```
 
 Save the generated `*.bit` files.

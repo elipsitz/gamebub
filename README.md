@@ -14,11 +14,13 @@ Check out the [announcement blog post](https://eli.lipsitz.net/posts/introducing
 * Video output to TV or monitor via custom dock
 * Extensible hardware, designed for future improvements
 
+## Crowdfunding Campaign
+
+Want to buy a prebuilt Game Bub? I'm launching a crowdfunding campaign! **[Check it out on Crowd Supply](https://www.crowdsupply.com/second-bedroom/game-bub)**, and sign up to be notified when the campaign goes live.
+
 ## Building
 
 Building a Game Bub handheld requires manufacturing PCBs, 3D printing the shell and buttons, and assembling components from a variety of sources. For information on manufacturing and assembling your own, see [docs/building.md](docs/building.md).
-
-Are you instead interested in purchasing a complete Game Bub kit? There are no immediate plans to offer kits, but if you're interested, [fill out this form](https://forms.gle/m1FFUqpCde7x5u5AA).
 
 For other inquiries, contact me directly at eli@lipsitz.net.
 

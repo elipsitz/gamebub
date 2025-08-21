@@ -1,8 +1,11 @@
-[![Game Bub trailer](./docs/assets/video-poster.jpg)](https://www.youtube.com/watch?v=_WQGJFFGHmE)
+![Game Bub logo](./docs/assets/logo.png)
+[![Game Bub trailer](./docs/assets/video-poster.jpg)](https://www.youtube.com/watch?v=f16E5J6qljw)
 
 **Game Bub** is an open-source FPGA retro emulation handheld, with support for Game Boy, Game Boy Color, and Game Boy Advance games.
 
 Check out the [announcement blog post](https://eli.lipsitz.net/posts/introducing-gamebub/) for an in-depth look at the development process!
+
+Check out the **[Crowd Supply campaign](https://www.crowdsupply.com/second-bedroom/game-bub)** to buy your own, prebuilt Game Bub!
 
 
 ## Features
@@ -10,13 +13,9 @@ Check out the [announcement blog post](https://eli.lipsitz.net/posts/introducing
 * Load and play ROM files from a microSD card (with built-in support for rumble, clock, accelerometer, gyroscope)
 * Multiplayer link cable functionality
 * Custom, from-scratch Game Boy and Game Boy Advance FPGA cores with great game compatibility
-* 15+ hour battery life 
+* 14+ hour battery life 
 * Video output to TV or monitor via custom dock
 * Extensible hardware, designed for future improvements
-
-## Crowdfunding Campaign
-
-Want to buy a prebuilt Game Bub? I'm launching a crowdfunding campaign! **[Check it out on Crowd Supply](https://www.crowdsupply.com/second-bedroom/game-bub)**, and sign up to be notified when the campaign goes live.
 
 ## Building
 

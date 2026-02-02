@@ -5,7 +5,9 @@
 
 Check out the [announcement blog post](https://eli.lipsitz.net/posts/introducing-gamebub/) for an in-depth look at the development process!
 
-Check out the **[Crowd Supply campaign](https://www.crowdsupply.com/second-bedroom/game-bub)** to buy your own, prebuilt Game Bub!
+You can buy your own, prebuilt Game Bub from **[Crowd Supply](https://www.crowdsupply.com/second-bedroom/game-bub)**!
+
+Want to chat about Game Bub? Feel free to [join the Discord](https://discord.gg/T5xrYpMfN7). 
 
 
 ## Features

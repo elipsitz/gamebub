@@ -1,0 +1,67 @@
+package build.framework
+
+import mill._
+import mill.scalalib._
+import pythonlib._
+
+trait FrameworkModule extends ScalaModule {
+  def scalaVersion = "2.13.16"
+  def chiselVersion = "7.7.0"
+
+  override def moduleDir = super.moduleDir / os.up
+
+  override def scalacOptions = Seq(
+    "-language:reflectiveCalls",
+    "-deprecation",
+    "-feature",
+    "-Xcheckinit",
+    "-Ymacro-annotations",
+  )
+
+  override def mvnDeps = Seq(
+    mvn"org.chipsalliance::chisel:$chiselVersion",
+  )
+
+  override def scalacPluginMvnDeps = Seq(
+    mvn"org.chipsalliance:::chisel-plugin:$chiselVersion",
+  )
+
+  // Implicitly add dependency on the concrete Framework classes
+  override def moduleDeps = Seq(core)
+
+  def defaultCoreClass: Option[String] = None
+
+  private def buildCoreArgs(target: String, coreClass: Option[String]): mill.api.Args = {
+    val resolvedCoreClass = coreClass
+      .orElse(defaultCoreClass)
+      .getOrElse(throw new RuntimeException("No --core-class specified and no default set"))
+
+    mill.api.Args(
+      "--name", s"${resolvedCoreClass}-${target}",
+      "--target", target,
+      "--core-class", resolvedCoreClass,
+      "--build-root", (moduleDir / "build" / s"${resolvedCoreClass}-${target}").toString,
+      "--additional-file-dirs", (moduleDir / "rtl").toString,
+      "--project-root", moduleDir.toString,
+    )
+  }
+
+  /// Build the core.
+  def buildCore(target: String, coreClass: Option[String]) = Task.Command {
+    // TODO: use Mill runMain directly before running build_core, avoid nested invocations.
+
+    pyBuildCore.run(buildCoreArgs(target, coreClass))()
+  }
+}
+
+object core extends FrameworkModule {
+  override def moduleDeps = Seq()
+}
+
+object pyBuildCore extends PythonModule {
+  override def moduleDir = super.moduleDir / os.up
+
+  override def mainScript = Task.Source("scripts/build_core.py")
+
+  override def pythonDeps = Seq("edalize==0.6.7")
+}

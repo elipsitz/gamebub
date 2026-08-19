@@ -9,9 +9,8 @@ import struct
 import sys
 import shutil
 
-ROOT_PATH = Path(__file__).resolve().parent.parent
-MILL_PATH = ROOT_PATH / "mill"
-
+FRAMEWORK_ROOT = Path(__file__).resolve().parent.parent
+MILL_PATH = FRAMEWORK_ROOT / "mill"
 
 @dataclass
 class Target:
@@ -99,6 +98,8 @@ def build(
     target: Target,
     build_root: Path,
     core_class: str,
+    project_root: Path,
+    additional_file_dirs: list[Path] = [],
 ):
     files = []
     if build_root.exists():
@@ -106,18 +107,21 @@ def build(
     build_root.mkdir(parents=True, exist_ok=True)
 
     # Run Chisel
-    # TODO: handle multiple source roots
     generate_root = build_root / "generated"
     args = [
         MILL_PATH,
         "-i",
-        "GameBub.runMain",
+        "--no-build-lock",
+        "root.runMain",
         target.main_class,
         core_class,
         *target.chisel_args,
         f"--target-dir={generate_root}",
     ]
-    subprocess.run(args)
+
+    result = subprocess.run(args, cwd=project_root)
+    if result.returncode != 0:
+        sys.exit("Chisel build failed")
 
     # Collect files from Chisel output
     filelist_path = generate_root / "filelist.f"
@@ -126,18 +130,25 @@ def build(
             path = filelist_path.parent / filename.rstrip()
             files.append(dict(name=path, file_type="systemVerilogSource"))
 
-    # Add additional target files
-    for file in target.files:
-        file_extension = Path(file).suffix
+    # Add additional target RTL files
+    additional_files = [FRAMEWORK_ROOT / f for f in target.files]
+    for dir in additional_file_dirs:
+        for (dir, _, dir_files) in os.walk(dir):
+            dir = Path(dir)
+            for file in dir_files:
+                additional_files.append(dir / file)
+
+    for file in additional_files:
+        file_extension = file.suffix
         file_type = {
             ".xdc": "xdc",
             ".v": "verilogSource",
             ".sv": "systemVerilogSource",
-        }[file_extension]
-        path = ROOT_PATH / file
-        files.append(dict(name=path, file_type=file_type))
-
-    # TODO: find and add additional core files
+            ".vhdl": "vhdlSource",
+        }.get(file_extension)
+        if not file_type:
+            print("WARNING: Skipping unknown file type:", file)
+        files.append(dict(name=file, file_type=file_type))
 
     # Make all file paths relative to build root.
     for f in files:
@@ -194,7 +205,7 @@ def build(
     print("*" * 80)
 
 
-def main() -> None:
+def main(args) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", required=True)
     parser.add_argument(
@@ -204,17 +215,21 @@ def main() -> None:
         help="Target hardware",
     )
     parser.add_argument("--build-root", required=True, type=Path)
+    parser.add_argument("--project-root", type=Path)
     parser.add_argument("--core-class", required=True)
+    parser.add_argument("--additional-file-dirs", nargs="*", default=[], type=Path)
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     target = next(t for t in TARGETS if t.name == args.target)
     build(
         args.name,
         target,
         args.build_root.resolve(),
         args.core_class,
+        args.project_root or FRAMEWORK_ROOT,
+        args.additional_file_dirs,
     )
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

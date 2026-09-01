@@ -1,6 +1,8 @@
 #![allow(unused)]
 
-use std::time::{Duration, Instant};
+use core::time::Duration;
+
+use super::timer::Timer;
 use thiserror::Error;
 
 use embedded_hal::digital::OutputPin;
@@ -25,35 +27,39 @@ pub enum RenderSource {
     Mcu,
 }
 
-pub struct ILI9488<PinReset: OutputPin, PinDc: OutputPin, Spi: SpiDevice> {
+pub struct ILI9488<PinReset: OutputPin, PinDc: OutputPin, Spi: SpiDevice, T: Timer> {
     pin_reset: PinReset,
     pin_dc: PinDc,
     spi: Spi,
-    last_sleep_change: Instant,
+    timer: T,
+    /// When the panel last changed sleep state, as a reading from `timer`.
+    last_sleep_change: u64,
     render_source: RenderSource,
 }
 
-impl<PinReset, PinDc, Spi> ILI9488<PinReset, PinDc, Spi>
+impl<PinReset, PinDc, Spi, T> ILI9488<PinReset, PinDc, Spi, T>
 where
     Spi: SpiDevice,
     PinReset: OutputPin,
     PinDc: OutputPin,
+    T: Timer,
 {
-    pub fn new(pin_reset: PinReset, pin_dc: PinDc, spi: Spi) -> Self {
+    pub fn new(pin_reset: PinReset, pin_dc: PinDc, spi: Spi, timer: T) -> Self {
         ILI9488 {
+            last_sleep_change: timer.now_ms(),
             pin_reset,
             pin_dc,
             spi,
-            last_sleep_change: Instant::now(),
+            timer,
             render_source: RenderSource::Mcu,
         }
     }
 
     pub fn init(&mut self) -> Result<(), Error> {
         self.pin_reset.set_low().map_err(|_| Error::ResetError)?;
-        std::thread::sleep(Duration::from_micros(100));
+        self.timer.sleep(Duration::from_micros(100));
         self.pin_reset.set_high().map_err(|_| Error::ResetError)?;
-        self.last_sleep_change = Instant::now();
+        self.last_sleep_change = self.timer.now_ms();
 
         // "Adjust Control 3": params have no specified meaning
         self.write_cmd(0xF7, &[0xA9, 0x51, 0x2C, 0x82])?;
@@ -123,8 +129,8 @@ where
     }
 
     pub fn enter_sleep(&mut self) -> Result<(), Error> {
-        let wait_time = SLEEP_CHANGE_DELAY.saturating_sub(self.last_sleep_change.elapsed());
-        std::thread::sleep(wait_time);
+        self.timer
+            .sleep_until(self.last_sleep_change, SLEEP_CHANGE_DELAY);
 
         // Display off
         self.write_cmd(0x28, &[])?;
@@ -134,21 +140,21 @@ where
 
         // Sleep in
         self.write_cmd(0x10, &[])?;
-        self.last_sleep_change = Instant::now();
+        self.last_sleep_change = self.timer.now_ms();
 
         Ok(())
     }
 
     pub fn exit_sleep(&mut self) -> Result<(), Error> {
-        let wait_time = SLEEP_CHANGE_DELAY.saturating_sub(self.last_sleep_change.elapsed());
-        std::thread::sleep(wait_time);
+        self.timer
+            .sleep_until(self.last_sleep_change, SLEEP_CHANGE_DELAY);
 
         // Sleep out
         self.write_cmd(0x11, &[])?;
-        self.last_sleep_change = Instant::now();
+        self.last_sleep_change = self.timer.now_ms();
 
         // Must wait 5ms before sending commands after sleep out.
-        std::thread::sleep(Duration::from_millis(5));
+        self.timer.sleep(Duration::from_millis(5));
 
         // Re-enable use of DOTCLK
         if matches!(self.render_source, RenderSource::Fpga) {

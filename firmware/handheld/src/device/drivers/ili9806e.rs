@@ -1,4 +1,6 @@
-use std::time::{Duration, Instant};
+use core::time::Duration;
+
+use super::timer::Timer;
 use thiserror::Error;
 
 use embedded_hal::digital::OutputPin;
@@ -15,34 +17,38 @@ pub enum Error {
     SpiError,
 }
 
-pub struct ILI9806E<PinReset: OutputPin, Spi: SpiDevice> {
+pub struct ILI9806E<PinReset: OutputPin, Spi: SpiDevice, T: Timer> {
     pin_reset: PinReset,
     spi: Spi,
-    last_sleep_change: Instant,
+    timer: T,
+    /// When the panel last changed sleep state, as a reading from `timer`.
+    last_sleep_change: u64,
 }
 
-impl<PinReset, Spi> ILI9806E<PinReset, Spi>
+impl<PinReset, Spi, T> ILI9806E<PinReset, Spi, T>
 where
     Spi: SpiDevice,
     PinReset: OutputPin,
+    T: Timer,
 {
-    pub fn new(pin_reset: PinReset, spi: Spi) -> Self {
+    pub fn new(pin_reset: PinReset, spi: Spi, timer: T) -> Self {
         Self {
+            last_sleep_change: timer.now_ms(),
             pin_reset,
             spi,
-            last_sleep_change: Instant::now(),
+            timer,
         }
     }
 
     pub fn init(&mut self) -> Result<(), Error> {
         // Reset the display.
         self.pin_reset.set_high().map_err(|_| Error::ResetError)?;
-        std::thread::sleep(Duration::from_millis(1));
+        self.timer.sleep(Duration::from_millis(1));
         self.pin_reset.set_low().map_err(|_| Error::ResetError)?;
-        std::thread::sleep(Duration::from_millis(5));
+        self.timer.sleep(Duration::from_millis(5));
         self.pin_reset.set_high().map_err(|_| Error::ResetError)?;
-        self.last_sleep_change = Instant::now();
-        std::thread::sleep(Duration::from_millis(5));
+        self.last_sleep_change = self.timer.now_ms();
+        self.timer.sleep(Duration::from_millis(5));
 
         // Change to page 1
         self.write_cmd(0xFF, &[0xFF, 0x98, 0x06, 0x04, 0x01])?;
@@ -196,29 +202,29 @@ where
     }
 
     pub fn enter_sleep(&mut self) -> Result<(), Error> {
-        let wait_time = SLEEP_CHANGE_DELAY.saturating_sub(self.last_sleep_change.elapsed());
-        std::thread::sleep(wait_time);
+        self.timer
+            .sleep_until(self.last_sleep_change, SLEEP_CHANGE_DELAY);
 
         // Display off
         self.write_cmd(0x28, &[])?;
 
         // Sleep in
         self.write_cmd(0x10, &[])?;
-        self.last_sleep_change = Instant::now();
+        self.last_sleep_change = self.timer.now_ms();
 
         Ok(())
     }
 
     pub fn exit_sleep(&mut self) -> Result<(), Error> {
-        let wait_time = SLEEP_CHANGE_DELAY.saturating_sub(self.last_sleep_change.elapsed());
-        std::thread::sleep(wait_time);
+        self.timer
+            .sleep_until(self.last_sleep_change, SLEEP_CHANGE_DELAY);
 
         // Sleep out
         self.write_cmd(0x11, &[])?;
-        self.last_sleep_change = Instant::now();
+        self.last_sleep_change = self.timer.now_ms();
 
         // Must wait 5ms before sending commands after sleep out.
-        std::thread::sleep(Duration::from_millis(5));
+        self.timer.sleep(Duration::from_millis(5));
 
         // Display on
         self.write_cmd(0x29, &[])?;

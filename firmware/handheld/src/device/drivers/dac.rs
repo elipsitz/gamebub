@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
-use std::time::Duration;
+use core::time::Duration;
+
+use super::timer::Timer;
 
 use embedded_hal::digital::OutputPin;
 use embedded_hal::i2c::I2c;
@@ -32,24 +34,27 @@ pub struct InterruptStatus {
     pub right_dac_power: bool,
 }
 
-pub struct TLV320DAC3101<PinReset: OutputPin, I2C: I2c> {
+pub struct TLV320DAC3101<PinReset: OutputPin, I2C: I2c, T: Timer> {
     pin_reset: PinReset,
     i2c: I2C,
+    timer: T,
     page: u8,
 
     volume: u8,
     mute: bool,
 }
 
-impl<PinReset, I2C> TLV320DAC3101<PinReset, I2C>
+impl<PinReset, I2C, T> TLV320DAC3101<PinReset, I2C, T>
 where
     PinReset: OutputPin,
     I2C: I2c,
+    T: Timer,
 {
-    pub fn new(pin_reset: PinReset, i2c: I2C) -> Self {
+    pub fn new(pin_reset: PinReset, i2c: I2C, timer: T) -> Self {
         TLV320DAC3101 {
             pin_reset,
             i2c,
+            timer,
             page: 0,
 
             volume: 0,
@@ -60,9 +65,9 @@ where
     /// Reset the device without configuring it.
     pub fn reset(&mut self) -> Result<(), Error> {
         self.pin_reset.set_low().map_err(|_| Error::PinError)?;
-        std::thread::sleep(Duration::from_micros(1));
+        self.timer.sleep(Duration::from_micros(1));
         self.pin_reset.set_high().map_err(|_| Error::PinError)?;
-        std::thread::sleep(Duration::from_millis(1));
+        self.timer.sleep(Duration::from_millis(1));
         Ok(())
     }
 

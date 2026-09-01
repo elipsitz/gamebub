@@ -2,7 +2,7 @@
 
 use std::{
     io::Read,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use embedded_hal::{
@@ -14,6 +14,7 @@ use esp_idf_svc::hal::{
     units::Hertz,
 };
 use thiserror::Error;
+use crate::device::drivers::timer::Timer;
 
 use crate::device::DisplayMode;
 
@@ -77,6 +78,7 @@ pub struct Fpga<
     PinProgramB: OutputPin,
     PinInitB: InputPin,
     ProgramSpi: SpiDevice,
+    T: Timer,
 > {
     pin_done: PinDone,
     pub pin_program_b: PinProgramB,
@@ -91,15 +93,18 @@ pub struct Fpga<
 
     /// Bitfield of enabled interrupts
     interrupts: u32,
+
+    timer: T,
 }
 
-impl<'a, PinDone, PinProgramB, PinInitB, ProgramSpi>
-    Fpga<'a, PinDone, PinProgramB, PinInitB, ProgramSpi>
+impl<'a, PinDone, PinProgramB, PinInitB, ProgramSpi, T>
+    Fpga<'a, PinDone, PinProgramB, PinInitB, ProgramSpi, T>
 where
     PinDone: InputPin,
     PinProgramB: OutputPin,
     PinInitB: InputPin,
     ProgramSpi: SpiDevice,
+    T: Timer,
 {
     pub fn new(
         pin_done: PinDone,
@@ -107,8 +112,10 @@ where
         pin_init_b: PinInitB,
         data_spi: Vec<(SpiDataDriver<'a>, Hertz)>,
         program_spi: ProgramSpi,
+        timer: T,
     ) -> Self {
         Fpga {
+            timer,
             pin_done,
             pin_program_b,
             pin_init_b,
@@ -143,30 +150,30 @@ where
         // After power-on-reset, INIT_B will be low for 10ms to 35ms (T_POR),
         // configuration can only start after this.
         // Poll INIT_B until it goes high.
-        let start_time = Instant::now();
+        let start_ms = self.timer.now_ms();
         while self.pin_init_b.is_low().map_err(|_| Error::PinError)? {
-            if start_time.elapsed() > Duration::from_millis(35) {
+            if self.timer.now_ms().saturating_sub(start_ms) > 35 {
                 return Err(Error::ProgramError);
             }
-            std::thread::sleep(Duration::from_millis(5));
+            self.timer.sleep(Duration::from_millis(5));
         }
 
         // Pull PROGRAM_B low, hold it for at least 250ns.
         self.pin_program_b.set_low().map_err(|_| Error::PinError)?;
-        std::thread::sleep(Duration::from_millis(1));
+        self.timer.sleep(Duration::from_millis(1));
         if self.pin_init_b.is_high().map_err(|_| Error::PinError)? {
             return Err(Error::ProgramError);
         }
         self.pin_program_b.set_high().map_err(|_| Error::PinError)?;
 
         // INIT_B will go high at most 5ms after PROGRAM_B release.
-        std::thread::sleep(Duration::from_millis(5));
+        self.timer.sleep(Duration::from_millis(5));
         if self.pin_init_b.is_low().map_err(|_| Error::PinError)? {
             return Err(Error::ProgramError);
         }
 
         log::info!("FPGA is in program mode");
-        let start_time = Instant::now();
+        let start_ms = self.timer.now_ms();
 
         let mut num_read = 0;
         while num_read < header.length {
@@ -185,7 +192,7 @@ where
         log::info!(
             "Programmed FPGA, done={}, time={}",
             self.pin_done.is_high().map_err(|_| Error::PinError)?,
-            start_time.elapsed().as_millis() as u32,
+            self.timer.now_ms().saturating_sub(start_ms),
         );
 
         Ok(())

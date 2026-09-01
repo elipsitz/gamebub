@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use embedded_hal::i2c::I2c;
 use core::time::Duration;
+use embedded_hal::i2c::I2c;
 
 use super::timer::Timer;
 use thiserror::Error;

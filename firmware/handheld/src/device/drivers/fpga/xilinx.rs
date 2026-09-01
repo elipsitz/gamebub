@@ -1,6 +1,4 @@
-use std::io::Read;
-
-use anyhow::bail;
+use embedded_io::{Read, ReadExactError};
 
 #[allow(unused)]
 mod consts {
@@ -11,6 +9,8 @@ mod consts {
     pub const TAG_BITSTREAM: u8 = 0x65;
 }
 
+const HEADER_LEN: usize = 9;
+
 pub struct BitstreamMetadata {
     /// Bitstream payload length
     pub length: usize,
@@ -18,38 +18,67 @@ pub struct BitstreamMetadata {
     pub user_id: Option<u32>,
 }
 
+/// Why a header failed to parse.
+///
+/// Concrete rather than `anyhow`, which would need the reader's error to be
+/// `Send + Sync + 'static` -- a bound `embedded_io::Read` never promises, and
+/// one that spreads to every caller until it reaches a reader too opaque to
+/// name it on.
+#[derive(Debug, thiserror::Error)]
+pub enum HeaderError {
+    #[error("bitstream ended mid-header")]
+    UnexpectedEof,
+    #[error("could not read bitstream")]
+    Io,
+    #[error("header length field was not {HEADER_LEN}")]
+    BadHeaderLength,
+    #[error("header magic did not match")]
+    BadMagic,
+    #[error("version field was not 1")]
+    BadVersion,
+}
+
+// Blanket over the reader's error type, so `?` needs no bound on it at all.
+impl<E> From<ReadExactError<E>> for HeaderError {
+    fn from(e: ReadExactError<E>) -> Self {
+        match e {
+            ReadExactError::UnexpectedEof => Self::UnexpectedEof,
+            ReadExactError::Other(_) => Self::Io,
+        }
+    }
+}
+
 /// Parse the Xilinx .bit header from the file.
 ///
 /// On success, leaves the cursor at the start of the bitstream payload.
-pub fn parse_bitstream_header(f: &mut dyn Read) -> anyhow::Result<BitstreamMetadata> {
-    fn read_u16(f: &mut dyn Read) -> anyhow::Result<u16> {
+pub fn parse_bitstream_header<R: Read>(f: &mut R) -> Result<BitstreamMetadata, HeaderError> {
+    fn read_u16<R: Read>(f: &mut R) -> Result<u16, HeaderError> {
         let mut data = [0u8; 2];
         f.read_exact(&mut data)?;
         Ok(u16::from_be_bytes(data))
     }
 
-    fn read_u32(f: &mut dyn Read) -> anyhow::Result<u32> {
+    fn read_u32<R: Read>(f: &mut R) -> Result<u32, HeaderError> {
         let mut data = [0u8; 4];
         f.read_exact(&mut data)?;
         Ok(u32::from_be_bytes(data))
     }
 
     // Read initial header
-    const HEADER_LEN: usize = 9;
     let header_len = read_u16(f)?;
     if (header_len as usize) != HEADER_LEN {
-        bail!("Unexpected header length");
+        return Err(HeaderError::BadHeaderLength);
     }
     let mut header = [0u8; HEADER_LEN];
     f.read_exact(&mut header)?;
     if header != [0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x00] {
-        bail!("Invalid header");
+        return Err(HeaderError::BadMagic);
     }
 
     // Read the 2 bytes (0x0001)... a version perhaps?
     let unknown = read_u16(f)?;
     if unknown != 1 {
-        bail!("Invalid unknown value");
+        return Err(HeaderError::BadVersion);
     }
 
     let mut metadata = BitstreamMetadata {

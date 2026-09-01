@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use std::{
-    io::Read,
-    time::Duration,
-};
+use core::time::Duration;
 
+use embedded_io::Read;
+
+use crate::device::drivers::timer::Timer;
 use embedded_hal::{
     digital::{InputPin, OutputPin},
     spi::SpiDevice,
@@ -14,7 +14,6 @@ use esp_idf_svc::hal::{
     units::Hertz,
 };
 use thiserror::Error;
-use crate::device::drivers::timer::Timer;
 
 use crate::device::DisplayMode;
 
@@ -127,9 +126,9 @@ where
     }
 
     /// Program the FPGA with a new bitstream.
-    pub fn program(
+    pub fn program<R: Read>(
         &mut self,
-        bitstream: &mut dyn Read,
+        bitstream: &mut R,
         scratch_buf: &mut [u8],
     ) -> Result<(), Error> {
         let header =

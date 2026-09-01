@@ -93,7 +93,8 @@ pub struct Device<'a> {
     #[cfg(feature = "has_max17048")]
     pub fuel_gauge: drivers::max17048::MAX17048<MutexI2C<'a, I2cDriver<'a>>>,
     #[cfg(feature = "has_bq27427")]
-    pub fuel_gauge: drivers::bq27427::BQ27427<MutexI2C<'a, I2cDriver<'a>>, drivers::timer::SystemTimer>,
+    pub fuel_gauge:
+        drivers::bq27427::BQ27427<MutexI2C<'a, I2cDriver<'a>>, drivers::timer::SystemTimer>,
 
     /// IMU driver
     pub imu: drivers::imu::LSM6DS3TRC<MutexI2C<'a, I2cDriver<'a>>>,

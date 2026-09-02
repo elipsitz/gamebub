@@ -1,10 +1,10 @@
 <p align="center">
   <a href="https://gamebub.net/">
-    <img src="./docs/assets/logo.svg" width="480" alt="Game Bub logo">
+    <img src="./assets/logo.svg" width="480" alt="Game Bub logo">
   </a>
 </p>
 
-[![Game Bub trailer](./docs/assets/video-poster.jpg)](https://www.youtube.com/watch?v=f16E5J6qljw)
+[![Game Bub trailer](./assets/video-poster.jpg)](https://www.youtube.com/watch?v=f16E5J6qljw)
 
 **Game Bub** is an open-source FPGA retro emulation handheld, with support for Game Boy, Game Boy Color, and Game Boy Advance games.
 
@@ -28,13 +28,13 @@ Check out the [announcement blog post](https://eli.lipsitz.net/posts/introducing
 
 ## Building
 
-Building a Game Bub handheld requires manufacturing PCBs, 3D printing the shell and buttons, and assembling components from a variety of sources. For information on manufacturing and assembling your own, see [docs/building.md](docs/building.md).
+Building a Game Bub handheld requires manufacturing PCBs, 3D printing the shell and buttons, and assembling components from a variety of sources. For information on manufacturing and assembling your own, see [here](https://github.com/elipsitz/gamebub/blob/v0.1/docs/building.md). Note that this information is for the older, vertical revision 2. Updated building information will be available in the Game Bub Docs soon.
 
 For other inquiries, contact us at support@gamebub.net.
 
 ## Architecture
 
-For an in-depth description of the project architecture, see [docs/architecture.md](docs/architecture.md).
+For an in-depth description of the project architecture, as of revision 2, see [here](https://github.com/elipsitz/gamebub/blob/v0.1/docs/architecture.md).
 
 The Game Bub handheld consists of a Xilinx XC7A100T FPGA to do the main emulation and I/O, and an ESP32-S3 microcontroller to do auxiliary tasks (configuring the FPGA, rendering the UI, loading ROM files from a microSD card and sending it to the FPGA).
 

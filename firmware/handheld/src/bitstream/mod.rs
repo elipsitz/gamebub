@@ -1,5 +1,6 @@
 use std::fs::File;
-use std::io::Read;
+
+use embedded_io::Read;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -91,8 +92,7 @@ fn heatshrink_decompress_stream(file: File) -> impl Read {
     // Heatshrink decoder parameters: W=9, L=6 (chosen empirically)
     type HeatshrinkDecoder = heatshrink::decoder::HeatshrinkDecoder<9, 6, 512, 512>;
     let reader = embedded_io_adapters::std::FromStd::new(file);
-    let decoder = heatshrink::io::DecoderReader::<_, HeatshrinkDecoder>::new(reader);
-    embedded_io_adapters::std::ToStd::new(decoder)
+    heatshrink::io::DecoderReader::<_, HeatshrinkDecoder>::new(reader)
 }
 
 pub enum CurrentBitstream {

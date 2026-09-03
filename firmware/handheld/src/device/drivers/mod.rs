@@ -17,4 +17,5 @@ pub mod rtc;
 pub mod sdcard;
 #[cfg(feature = "has_st7262")]
 pub mod st7262;
+pub mod timer;
 pub mod usb;

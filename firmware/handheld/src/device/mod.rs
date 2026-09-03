@@ -55,6 +55,7 @@ pub struct Device<'a> {
         PinDriver<'a, AnyOutputPin, Output>,
         PinDriver<'a, AnyOutputPin, Output>,
         SpiSoftCsDeviceDriver<'a, SpiSharedDeviceDriver<'a, &'a SpiDriver<'a>>, &'a SpiDriver<'a>>,
+        drivers::timer::SystemTimer,
     >,
     #[cfg(feature = "has_st7262")]
     pub lcd: drivers::st7262::ST7262<PinDriver<'a, AnyOutputPin, Output>>,
@@ -62,6 +63,7 @@ pub struct Device<'a> {
     pub lcd: drivers::ili9806e::ILI9806E<
         PinDriver<'a, AnyOutputPin, Output>,
         SpiSoftCsDeviceDriver<'a, SpiSharedDeviceDriver<'a, &'a SpiDriver<'a>>, &'a SpiDriver<'a>>,
+        drivers::timer::SystemTimer,
     >,
 
     /// Display mode (if initialized)
@@ -71,6 +73,7 @@ pub struct Device<'a> {
     pub dac: drivers::dac::TLV320DAC3101<
         PinDriver<'a, AnyOutputPin, Output>,
         MutexI2C<'a, I2cDriver<'a>>,
+        drivers::timer::SystemTimer,
     >,
 
     /// FPGA driver
@@ -80,6 +83,7 @@ pub struct Device<'a> {
         PinDriver<'a, AnyOutputPin, Output>,
         PinDriver<'a, AnyIOPin, Input>,
         SpiDeviceDriver<'a, &'a SpiDriver<'a>>,
+        drivers::timer::SystemTimer,
     >,
 
     /// RTC driver
@@ -89,7 +93,8 @@ pub struct Device<'a> {
     #[cfg(feature = "has_max17048")]
     pub fuel_gauge: drivers::max17048::MAX17048<MutexI2C<'a, I2cDriver<'a>>>,
     #[cfg(feature = "has_bq27427")]
-    pub fuel_gauge: drivers::bq27427::BQ27427<MutexI2C<'a, I2cDriver<'a>>>,
+    pub fuel_gauge:
+        drivers::bq27427::BQ27427<MutexI2C<'a, I2cDriver<'a>>, drivers::timer::SystemTimer>,
 
     /// IMU driver
     pub imu: drivers::imu::LSM6DS3TRC<MutexI2C<'a, I2cDriver<'a>>>,
@@ -399,7 +404,7 @@ impl Device<'_> {
                 )?;
                 let lcd_reset = PinDriver::output(pin_lcd_reset)?;
                 let lcd_dc = PinDriver::output(pin_lcd_dc)?;
-                let mut lcd = drivers::ili9488::ILI9488::new(lcd_reset, lcd_dc, lcd_spi);
+                let mut lcd = drivers::ili9488::ILI9488::new(lcd_reset, lcd_dc, lcd_spi, drivers::timer::SystemTimer);
             } else if #[cfg(feature = "has_st7262")] {
                 let lcd_enable = PinDriver::output(pin_lcd_enable)?;
                 let mut lcd = drivers::st7262::ST7262::new(lcd_enable);
@@ -412,7 +417,7 @@ impl Device<'_> {
                     gpio::Level::High,
                 )?;
                 let lcd_reset = PinDriver::output(pin_lcd_reset)?;
-                let mut lcd = drivers::ili9806e::ILI9806E::new(lcd_reset, lcd_spi);
+                let mut lcd = drivers::ili9806e::ILI9806E::new(lcd_reset, lcd_spi, drivers::timer::SystemTimer);
             }
         }
         lcd.init().context("LCD init")?;
@@ -452,7 +457,7 @@ impl Device<'_> {
                 let mut fuel_gauge = drivers::max17048::MAX17048::new(MutexI2C::new(&i2c));
                 let _ = fuel_gauge.set_alert_soc_change(true); // fuel gauge won't work without a battery
             } else if #[cfg(feature = "has_bq27427")] {
-                let fuel_gauge = drivers::bq27427::BQ27427::new(MutexI2C::new(&i2c));
+                let fuel_gauge = drivers::bq27427::BQ27427::new(MutexI2C::new(&i2c), drivers::timer::SystemTimer);
 
                 // Fuel gauge requires configuration, which could block for multiple seconds. Run it in another thread,
                 // with a new instance of the driver. Scary, but fine, because the driver has no state
@@ -463,7 +468,7 @@ impl Device<'_> {
                     .name("battery_setup".to_string())
                     .stack_size(2 * 1024)
                     .spawn(move || {
-                        let mut fuel_gauge = drivers::bq27427::BQ27427::new(i2c_2);
+                        let mut fuel_gauge = drivers::bq27427::BQ27427::new(i2c_2, drivers::timer::SystemTimer);
                         // TODO: after software update, force reconfigure?
                         let force_configure = false;
                         if fuel_gauge.configure(force_configure).is_err() {
@@ -490,7 +495,11 @@ impl Device<'_> {
         // Setup DAC (requires fpga_power on)
         log::info!("Initializing DAC");
         let dac_reset = PinDriver::output(pin_dac_reset)?;
-        let mut dac = drivers::dac::TLV320DAC3101::new(dac_reset, MutexI2C::new(&i2c));
+        let mut dac = drivers::dac::TLV320DAC3101::new(
+            dac_reset,
+            MutexI2C::new(&i2c),
+            drivers::timer::SystemTimer,
+        );
         dac.init().context("DAC init")?;
         dac.configure_interrupts().context("DAC interrupts")?;
         dac.set_volume(kvs::keys::VOLUME.get().unwrap())
@@ -541,6 +550,7 @@ impl Device<'_> {
             fpga_init_b,
             fpga_data_spis,
             fpga_program_spi,
+            drivers::timer::SystemTimer,
         );
 
         // Mount system_data to /system

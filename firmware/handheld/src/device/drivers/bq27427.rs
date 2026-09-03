@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
+use core::time::Duration;
 use embedded_hal::i2c::I2c;
-use std::time::Duration;
+
+use super::timer::Timer;
 use thiserror::Error;
 
 const ADDRESS: u8 = 0x55;
@@ -120,16 +122,18 @@ pub enum Error {
     InvalidArgument,
 }
 
-pub struct BQ27427<I2C: I2c> {
+pub struct BQ27427<I2C: I2c, T: Timer> {
     i2c: I2C,
+    timer: T,
 }
 
-impl<I2C> BQ27427<I2C>
+impl<I2C, T> BQ27427<I2C, T>
 where
     I2C: I2c,
+    T: Timer,
 {
-    pub fn new(i2c: I2C) -> Self {
-        BQ27427 { i2c }
+    pub fn new(i2c: I2C, timer: T) -> Self {
+        BQ27427 { i2c, timer }
     }
 
     /// Configure the fuel gauge (blocking, may take a while)
@@ -191,7 +195,7 @@ where
         let retries = 10;
         let delay = Duration::from_millis(500);
         for _ in 0..retries {
-            std::thread::sleep(delay);
+            self.timer.sleep(delay);
 
             if (self.get_flags()? & flag) != 0 {
                 return Ok(());
@@ -256,7 +260,7 @@ where
         self.i2c
             .write_read(ADDRESS, &[command.0], &mut data)
             .map_err(|_| Error::I2cError)?;
-        std::thread::sleep(WAIT_TIME);
+        self.timer.sleep(WAIT_TIME);
         Ok(u16::from_le_bytes(data))
     }
 
@@ -266,7 +270,7 @@ where
         self.i2c
             .write_read(ADDRESS, &[0x00], &mut data)
             .map_err(|_| Error::I2cError)?;
-        std::thread::sleep(WAIT_TIME);
+        self.timer.sleep(WAIT_TIME);
         Ok(u16::from_le_bytes(data))
     }
 
@@ -276,11 +280,11 @@ where
         self.i2c
             .write(ADDRESS, &[0x00, a0])
             .map_err(|_| Error::I2cError)?;
-        std::thread::sleep(WAIT_TIME);
+        self.timer.sleep(WAIT_TIME);
         self.i2c
             .write(ADDRESS, &[0x01, a1])
             .map_err(|_| Error::I2cError)?;
-        std::thread::sleep(WAIT_TIME);
+        self.timer.sleep(WAIT_TIME);
         Ok(())
     }
 
@@ -308,7 +312,7 @@ where
             .write(ADDRESS, &[CMD_DATA_BLOCK, offset / 32])
             .map_err(|_| Error::I2cError)?;
 
-        std::thread::sleep(BLOCK_DELAY);
+        self.timer.sleep(BLOCK_DELAY);
 
         // Write the bytes to the BlockData
         for (i, &x) in data.iter().enumerate() {
@@ -324,7 +328,7 @@ where
             .write(ADDRESS, &[CMD_BLOCK_DATA_CHECKSUM, new_checksum])
             .map_err(|_| Error::I2cError)?;
 
-        std::thread::sleep(BLOCK_DELAY);
+        self.timer.sleep(BLOCK_DELAY);
         Ok(())
     }
 
@@ -358,7 +362,7 @@ where
         self.i2c
             .write(ADDRESS, &[CMD_DATA_BLOCK, offset / 32])
             .map_err(|_| Error::I2cError)?;
-        std::thread::sleep(BLOCK_DELAY);
+        self.timer.sleep(BLOCK_DELAY);
 
         // Read CC Gain
         let mut value = [0u8];
@@ -389,7 +393,7 @@ where
             .write(ADDRESS, &[CMD_BLOCK_DATA_CHECKSUM, new_checksum])
             .map_err(|_| Error::I2cError)?;
 
-        std::thread::sleep(BLOCK_DELAY);
+        self.timer.sleep(BLOCK_DELAY);
         Ok(())
     }
 }

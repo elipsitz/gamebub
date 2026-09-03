@@ -90,6 +90,7 @@ class HandheldGba extends Module with HandheldModule {
   val configRegEmuCart = RegInit(0.U.asTypeOf(new EmulatedCartridge.Config))
   val configRegRomSize = RegInit(0.U(25.W))
   val configRegGBPlayer = RegInit(0.U(1.W))
+  val configRegSgbButtons = RegInit(0.U(1.W))
   val configRegImuGyroZ = RegInit(0.U(12.W))
   val configRegImuAccelX = RegInit(0.U(12.W))
   val configRegImuAccelY = RegInit(0.U(12.W))
@@ -138,6 +139,7 @@ class HandheldGba extends Module with HandheldModule {
         // Rom size (minus one), max (2**25 - 1), 32MiB
         0x0004 -> RegisterMap.Entry.rw(configRegRomSize),
         0x0008 -> RegisterMap.Entry.rw(configRegGBPlayer),
+        0x000C -> RegisterMap.Entry.rw(configRegSgbButtons),
         0x0100 -> RegisterMap.Entry.rw(configRegImuGyroZ),
         0x0104 -> RegisterMap.Entry.rw(configRegImuAccelX),
         0x0108 -> RegisterMap.Entry.rw(configRegImuAccelY),
@@ -311,8 +313,9 @@ class HandheldGba extends Module with HandheldModule {
   val buttonFilter = Module(new ButtonFilter(new InputV0.Buttons))
   buttonFilter.io.enable := io.host.enable
   buttonFilter.io.input := io.input.buttons
-  gba.io.keypad.a := buttonFilter.io.output.a
-  gba.io.keypad.b := buttonFilter.io.output.b
+  val sgbButtons = configRegSgbButtons(0)
+  gba.io.keypad.a := (Mux(sgbButtons, buttonFilter.io.output.b, buttonFilter.io.output.a)
+  gba.io.keypad.b := (Mux(sgbButtons, buttonFilter.io.output.y, buttonFilter.io.output.b)
   gba.io.keypad.l := buttonFilter.io.output.l
   gba.io.keypad.r := buttonFilter.io.output.r
   gba.io.keypad.up := buttonFilter.io.output.up

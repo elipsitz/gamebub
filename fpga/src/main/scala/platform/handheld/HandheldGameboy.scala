@@ -47,6 +47,7 @@ class HandheldGameboy extends Module with HandheldModule {
   val configRegImuAccelX = RegInit(0.U(16.W))
   val configRegImuAccelY = RegInit(0.U(16.W))
   val configRegDmgOffColor = RegInit(0.U(16.W))
+  val configRegSgbButtons = RegInit(0.U(1.W))
   val statRegStalls = RegInit(0.U(32.W))
   val statRegCycles = RegInit(0.U(32.W))
 
@@ -99,6 +100,7 @@ class HandheldGameboy extends Module with HandheldModule {
         0x0020 -> RegisterMap.Entry.rw(configRegImuAccelX),
         0x0024 -> RegisterMap.Entry.rw(configRegImuAccelY),
         0x0030 -> RegisterMap.Entry.w(configRegDmgOffColor),
+        0x0034 -> RegisterMap.Entry.rw(configRegSgbButtons)
 
         0x1000 -> RegisterMap.Entry.rw(statRegStalls),
         0x1004 -> RegisterMap.Entry.rw(statRegCycles),
@@ -140,8 +142,9 @@ class HandheldGameboy extends Module with HandheldModule {
   val buttonFilter = Module(new ButtonFilter(new InputV0.Buttons))
   buttonFilter.io.enable := io.host.enable
   buttonFilter.io.input := io.input.buttons
-  gameboy.io.joypad.a := buttonFilter.io.output.a
-  gameboy.io.joypad.b := buttonFilter.io.output.b
+  val sgbButtons = configRegSgbButtons(0)
+  gameboy.io.joypad.a := (Mux(sgbButtons, buttonFilter.io.output.b, buttonFilter.io.output.a)
+  gameboy.io.joypad.b := (Mux(sgbButtons, buttonFilter.io.output.y, buttonFilter.io.output.b)
   gameboy.io.joypad.up := buttonFilter.io.output.up
   gameboy.io.joypad.down := buttonFilter.io.output.down
   gameboy.io.joypad.left := buttonFilter.io.output.left

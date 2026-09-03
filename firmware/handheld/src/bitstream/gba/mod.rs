@@ -32,6 +32,7 @@ const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_millis(250);
 const REG_EMU_CART_CONFIG: u32 = 0xE000_0000;
 const REG_EMU_CART_ROM_SIZE: u32 = 0xE000_0004;
 const REG_GB_PLAYER: u32 = 0xE000_0008;
+const REG_SGB_BUTTONS: u32 = 0xE000_000C;
 const REG_IMU_GYRO_Z: u32 = 0xE000_0100;
 const REG_IMU_ACCEL_X: u32 = 0xE000_0104;
 const REG_IMU_ACCEL_Y: u32 = 0xE000_0108;
@@ -222,6 +223,10 @@ impl Gba {
         device.fpga.write_u32(
             REG_GB_PLAYER,
             kvs::keys::GBA_ENABLE_GBP.get().unwrap() as u32,
+        )?;
+        device.fpga.write_u32(
+            REG_SGB_BUTTONS,
+            kvs::keys::GBA_SGB_BUTTONS.get().unwrap() as u32,
         )?;
 
         // Disable Vblank IRQ

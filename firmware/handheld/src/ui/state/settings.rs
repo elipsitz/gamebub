@@ -100,6 +100,11 @@ mod settings {
                 key: &keys::DMG_COLOR_PALETTE,
                 choices: &["Grayscale", "DMG Green", "GB Pocket"],
             },
+            // Super Game Boy button layout for GB/GBC
+            Entry::Checkbox {
+                name: "SGB Button Layout",
+                key: &keys::GB_SGB_BUTTONS,
+            },
         ],
     };
 
@@ -118,6 +123,11 @@ mod settings {
             Entry::Checkbox {
                 name: "Enable Game Boy Player",
                 key: &keys::GBA_ENABLE_GBP,
+            },
+            // Super Game Boy button layout for GBA
+            Entry::Checkbox {
+                name: "SGB Button Layout",
+                key: &keys::GBA_SGB_BUTTONS,
             },
         ],
     };

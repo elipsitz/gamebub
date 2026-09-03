@@ -41,6 +41,12 @@ pub static GBA_COLOR_PROFILE: KvsKey<i32> = KvsKey::new_with_default("gba-colors
 /// Whether to enable Game Boy Player functionality
 pub static GBA_ENABLE_GBP: KvsKey<bool> = KvsKey::new_with_default("gba-enable-gbp", true);
 
+// Whether to use the SGB button layout for GBA
+pub static GBA_SGB_BUTTONS: KvsKey<bool> = KvsKey::new_with_default("gba-sgb-buttons", false);
+
+// Whether to use the SGB button layout for GB/GBC
+pub static GB_SGB_BUTTONS: KvsKey<bool> = KvsKey::new_with_default("gb-sgb-buttons", false);
+
 /// Startup action.
 pub static STARTUP_ACTION: KvsKey<i32> = KvsKey::new_with_default("startup-action", 0);
 
@@ -61,6 +67,8 @@ pub fn flush_all() {
     GBA_SKIP_BOOT_ANIM.flush();
     GBA_COLOR_PROFILE.flush();
     GBA_ENABLE_GBP.flush();
+    GBA_SGB_BUTTONS.flush();
+    GB_SGB_BUTTONS.flush();
     STARTUP_ACTION.flush();
     LAST_FIRMWARE_VERSION.flush();
 }

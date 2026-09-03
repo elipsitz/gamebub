@@ -36,6 +36,7 @@ const REG_RTC_LATCHED: u32 = 0xE000_001C;
 const REG_IMU_ACCEL_X: u32 = 0xE000_0020;
 const REG_IMU_ACCEL_Y: u32 = 0xE000_0024;
 const REG_DMG_PALETTE_OFF: u32 = 0xE000_0030;
+const REG_SGB_BUTTONS: u32 = 0xE000_0034;
 const REG_STAT_STALLS: u32 = 0xE000_1000;
 const REG_STAT_CYCLES: u32 = 0xE000_1004;
 const BIOS_ADDRESS_BASE: u32 = 0xE010_0000;
@@ -143,6 +144,10 @@ impl Gameboy {
         let is_dmg = kvs::keys::GB_IS_DMG.get().unwrap();
         let config = 0 | (((!is_dmg) as u32) << 0);
         device.fpga.write_u32(REG_EMU_CONFIG, config)?;
+        device.fpga.write_u32(
+            REG_SGB_BUTTONS,
+            kvs::keys::GB_SGB_BUTTONS.get().unwrap() as u32,
+        )?;
 
         device.imu.disable_accel().unwrap();
 

@@ -4,8 +4,7 @@ use std::{fs::File, io::BufReader, path::PathBuf};
 
 use crate::device::drivers::fpga;
 
-// pub const DIR_CORES: &str = "/sdcard/cores/";
-pub const DIR_CORES: &str = "/dev/null";
+pub const DIR_CORES: &str = "/sdcard/cores/";
 
 #[derive(Deserialize)]
 pub struct CoreListEntry {

@@ -33,6 +33,7 @@ const REG_IMU_ACCEL_Y: u32 = 0x0000_0024;
 const REG_DMG_PALETTE_OFF: u32 = 0x0000_0030;
 const REG_STAT_STALLS: u32 = 0x0000_1000;
 const REG_STAT_CYCLES: u32 = 0x0000_1004;
+const REG_RESET_ONCE: u32 = 0x0000_2000;
 const DMG_PALETTE_BASE: u32 = 0x2000_0000;
 const COLOR_CORRECTION_BASE: u32 = 0x5000_0000;
 
@@ -177,7 +178,7 @@ impl Gameboy {
                 CoreSetting {
                     id: 0,
                     label: "Reset Core".into(),
-                    address: 0x0000_0008,
+                    address: REG_RESET_ONCE,
                     mask: 0,
                     default: 0,
                     inner: CoreSettingType::Action { value: 1 },
@@ -416,13 +417,11 @@ impl CoreHandler for Gameboy {
     fn on_setting_changed(&mut self, id: u16, value: u32) {
         let mut device = Device::lock();
         match id {
-            SETTING_RESET => {
-                // todo reset
-            }
             SETTING_GB_MODE => {
                 let is_dmg = value == 1;
                 let config = 0 | (((!is_dmg) as u32) << 0);
                 let _ = device.fpga.write_u32(REG_EMU_CONFIG, config);
+                let _ = device.fpga.write_u32(REG_RESET_ONCE, 1);
                 kvs::keys::GB_IS_DMG.set(&is_dmg);
             }
             SETTING_GBC_COLOR_CORRECTIONS => {

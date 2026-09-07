@@ -1,11 +1,24 @@
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use super::super::slint::Backend;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
-use crate::{core::CoreManager, device::Device, ui::slint::ScreenId, worker};
+use crate::{
+    core::CoreManager,
+    device::Device,
+    ui::slint::{CoreSettingType, ScreenId},
+    worker,
+};
 
 use super::UiState;
+
+pub struct CoreSettingUiItem {
+    pub id: u16,
+    pub label: SharedString,
+    pub setting_type: CoreSettingType,
+    pub value: u32,
+    pub choices: Vec<SharedString>,
+}
 
 impl UiState {
     /// Set up the "Game" screen.
@@ -20,13 +33,22 @@ impl UiState {
         backend.on_game_reset(move || {
             CoreManager::lock().reset_core();
         });
+        let state_ = state.clone();
         backend.on_game_settings_load(move || {
-            // TODO
-            log::info!("setting load");
+            // Clear existing settings
+            let state = state_.borrow_mut();
+            let root: crate::ui::slint::MainWindow = state.root.unwrap();
+            let backend = root.global::<Backend>();
+            backend.set_core_settings(ModelRc::default());
+
+            // Fetch new settings
+            worker::send(worker::Message::CoreSettingsLoad);
         });
-        backend.on_game_settings_set(move |index, value| {
-            // TODO
-            log::info!("setting {index} = {value:?}");
+        backend.on_game_settings_set(move |id, value| {
+            worker::send(worker::Message::CoreSettingChanged {
+                id: id as u16,
+                value: value as u32,
+            });
         });
 
         let state_ = state.clone();
@@ -41,5 +63,23 @@ impl UiState {
             };
             root.invoke_set_screen(ScreenId::MainMenu);
         });
+    }
+
+    pub fn game_settings_list(&mut self, list: Vec<CoreSettingUiItem>) {
+        let list = ModelRc::from(Rc::new(VecModel::from(
+            list.into_iter()
+                .map(|item| crate::ui::slint::CoreSetting {
+                    id: item.id as i32,
+                    label: item.label,
+                    r#type: item.setting_type,
+                    value: item.value as i32,
+                    choices: ModelRc::from(Rc::new(VecModel::from(item.choices))),
+                })
+                .collect::<Vec<_>>(),
+        )));
+
+        let root = self.root.unwrap();
+        let backend = root.global::<Backend>();
+        backend.set_core_settings(list);
     }
 }

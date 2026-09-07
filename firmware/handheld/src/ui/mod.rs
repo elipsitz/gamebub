@@ -1,6 +1,6 @@
 pub mod buttons;
 mod screenshot;
-mod slint;
+pub mod slint;
 mod state;
 
 use ::slint::platform::WindowAdapter;
@@ -18,6 +18,7 @@ use ::slint::{
 
 use crate::device::{Device, DisplayMode};
 use crate::input::{self, InputManager};
+pub use crate::ui::state::CoreSettingUiItem;
 use crate::worker;
 pub use state::notifications::Notification;
 
@@ -75,6 +76,8 @@ pub enum Message {
     CoreLoadError(String),
     /// Core loading progress
     CoreLoadProgress(f32),
+    /// Core settings
+    CoreSettingsList(Vec<CoreSettingUiItem>),
 }
 
 /// Send a message to the UI thread.
@@ -323,6 +326,9 @@ impl UI {
             }
             Message::CoreLoadError(error) => {
                 self.state.borrow_mut().cores_set_error(error);
+            }
+            Message::CoreSettingsList(items) => {
+                self.state.borrow_mut().game_settings_list(items);
             }
         }
     }

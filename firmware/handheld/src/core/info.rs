@@ -76,6 +76,8 @@ pub struct CoreSetting {
     /// Mask used when setting the value
     /// TODO: support hex-string
     pub mask: u32,
+    /// Default value
+    pub default: u32,
     /// Per-type information
     pub inner: CoreSettingType,
 }

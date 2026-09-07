@@ -134,6 +134,12 @@ pub trait CoreHandler {
 
     /// Temporary: as Bitstream trait
     fn as_legacy_bitstream(&mut self) -> &mut dyn bitstream::Bitstream;
+
+    /// Load initial core settings values
+    fn load_settings(&mut self) -> Vec<(u16, u32)>;
+
+    /// Called when a core setting value is updated
+    fn on_setting_changed(&mut self, id: u16, value: u32);
 }
 
 enum CoreHandlerImpl {
@@ -208,38 +214,58 @@ impl CoreManager {
 
         self.stage = Stage::LoadInit;
         self.run_cartridge = run_cartridge;
-        self.core_settings = Self::load_settings(core);
-        self.core_settings.get_or_insert_default();
+        self.core_settings = Some(Self::load_settings(core));
+        if let Some(core_handler) = self.core_handler.get_mut() {
+            self.core_settings.as_mut().unwrap().settings = core_handler.load_settings();
+        }
 
         self.selected_files = vec![None; core.files.len()];
         self.next_file_select();
     }
 
-    fn load_settings(core: &CoreInfo) -> Option<CoreSettings> {
-        let file = match File::open(core.get_settings_path()) {
-            Ok(file) => file,
-            Err(_) => {
-                log::warn!("Failed to open settings file");
-                return None;
-            }
-        };
-        let reader = BufReader::with_capacity(256, file);
-        let mut settings: CoreSettings = match serde_json::from_reader(reader) {
-            Ok(x) => x,
-            Err(_) => {
-                log::warn!("Failed to parse settings file");
-                return None;
-            }
-        };
+    fn load_settings(core: &CoreInfo) -> CoreSettings {
+        fn load(core: &CoreInfo) -> Option<CoreSettings> {
+            let file = match File::open(core.get_settings_path()) {
+                Ok(file) => file,
+                Err(_) => {
+                    log::warn!("Failed to open settings file");
+                    return None;
+                }
+            };
+            let reader = BufReader::with_capacity(256, file);
+            let settings: CoreSettings = match serde_json::from_reader(reader) {
+                Ok(x) => x,
+                Err(_) => {
+                    log::warn!("Failed to parse settings file");
+                    return None;
+                }
+            };
+            Some(settings)
+        }
+        let mut settings = load(core).unwrap_or_default();
 
         // Only keep file paths that belong to user-selected files.
         settings
             .file_paths
             .retain(|(i, _)| core.files.iter().any(|f| f.id == *i && f.user_selected));
-        // TODO: validate non-path settings
-        settings.settings.clear();
 
-        Some(settings)
+        // Validate and apply defaults.
+        settings.settings = core
+            .settings
+            .iter()
+            .map(|setting| {
+                let value = settings.settings.iter().find(|x| x.0 == setting.id).map_or(
+                    setting.default,
+                    |x| {
+                        // TODO: check if this is actually a valid setting?
+                        x.1
+                    },
+                );
+                (setting.id, value)
+            })
+            .collect();
+
+        settings
     }
 
     /// Temporary transitional method
@@ -463,6 +489,27 @@ impl CoreManager {
         }
 
         self.load_files()?;
+
+        // Transmit initial settings values
+        {
+            let info = self.core_info.as_ref().unwrap();
+            let settings = &self.core_settings.as_ref().unwrap().settings;
+            for &(id, value) in settings {
+                let setting = match info.settings.iter().find(|x| x.id == id) {
+                    Some(x) => x,
+                    None => continue,
+                };
+                if matches!(setting.inner, CoreSettingType::Action { .. }) {
+                    // Actions do not get an initial value
+                    continue;
+                }
+
+                if let Some(core_handler) = self.core_handler.get_mut() {
+                    core_handler.on_setting_changed(id, value);
+                }
+                self.setting_send(setting, value);
+            }
+        }
 
         if let Some(core_handler) = self.core_handler.get_mut() {
             core_handler
@@ -731,7 +778,11 @@ impl CoreManager {
     pub fn persist_settings(&mut self) -> Result<(), std::io::Error> {
         assert!(self.stage == Stage::Running);
         let core = self.core_info.as_ref().unwrap();
-        let settings = self.core_settings.as_ref().unwrap();
+        let settings = self.core_settings.as_mut().unwrap();
+        if core.is_built_in {
+            // Built-in cores don't use these settings, avoid confusion by not saving them.
+            settings.settings.clear();
+        }
 
         if !std::fs::exists(DIR_SETTINGS)? {
             std::fs::create_dir(DIR_SETTINGS)?;

@@ -46,6 +46,10 @@ const FILE_SAVE: u16 = 1;
 const FILE_BIOS: u16 = 2;
 const FILE_CONFIG_OVERRIDE: u16 = 3;
 
+const SETTING_RESET: u16 = 0;
+const SETTING_COLOR_CORRECTIONS: u16 = 1;
+const SETTING_GAME_BOY_PLAYER: u16 = 2;
+
 #[derive(Debug, Error)]
 pub enum GbaError {
     #[error("I/O error")]
@@ -302,17 +306,19 @@ impl Gba {
             .collect(),
             settings: [
                 CoreSetting {
-                    id: 0,
+                    id: SETTING_RESET,
                     label: "Reset Core".into(),
                     address: 0x0000_0008,
                     mask: 0,
+                    default: 0,
                     inner: CoreSettingType::Action { value: 1 },
                 },
                 CoreSetting {
-                    id: 1,
+                    id: SETTING_COLOR_CORRECTIONS,
                     label: "Color Corrections".into(),
                     address: 0xFFFF_FFFF,
                     mask: 0,
+                    default: 1,
                     inner: CoreSettingType::List {
                         items: ["None", "GBA", "GBA SP", "NDS", "NDS Lite", "NSO GBA"]
                             .iter()
@@ -325,10 +331,11 @@ impl Gba {
                     },
                 },
                 CoreSetting {
-                    id: 2,
+                    id: SETTING_GAME_BOY_PLAYER,
                     label: "Enable Game Boy Player".into(),
                     address: 0xFFFF_FFFF,
                     mask: 0,
+                    default: 1,
                     inner: CoreSettingType::Checkbox { value: 1 },
                 },
             ]
@@ -591,6 +598,42 @@ impl CoreHandler for Gba {
             let _ = device.fpga.write_u32(REG_STAT_STALLS, 0);
             let rate = (num_cycles as f32) / ((num_cycles as f32) + (num_stalls as f32));
             log::info!("Run rate: {}%", rate * 100.0);
+        }
+    }
+
+    fn load_settings(&mut self) -> Vec<(u16, u32)> {
+        vec![
+            (
+                SETTING_COLOR_CORRECTIONS,
+                kvs::keys::GBA_COLOR_PROFILE.get().unwrap() as u32,
+            ),
+            (
+                SETTING_GAME_BOY_PLAYER,
+                kvs::keys::GBA_ENABLE_GBP.get().unwrap() as u32,
+            ),
+        ]
+    }
+
+    fn on_setting_changed(&mut self, id: u16, value: u32) {
+        let mut device = Device::lock();
+        match id {
+            SETTING_RESET => {
+                // todo reset
+            }
+            SETTING_COLOR_CORRECTIONS => {
+                kvs::keys::GBA_COLOR_PROFILE.set(&(value as i32));
+                let correction: &ColorCorrection = {
+                    use color_correction::presets::*;
+                    let corrections = [&IDENTITY, &GBC_GBA, &GBA_AGS101, &NDS, &NDS_LITE, &NSO_GBA];
+                    corrections.get(value as usize).unwrap_or(&&IDENTITY)
+                };
+                let _ = correction.configure(&mut device, COLOR_CORRECTION_BASE);
+            }
+            SETTING_GAME_BOY_PLAYER => {
+                kvs::keys::GBA_ENABLE_GBP.set(&(value == 1));
+                let _ = device.fpga.write_u32(REG_GB_PLAYER, value);
+            }
+            _ => {}
         }
     }
 }

@@ -10,7 +10,7 @@ use rtc::RtcState;
 use thiserror::Error;
 
 use crate::{
-    core::{CoreFile, CoreHandler, CoreInfo, CoreSetting},
+    core::{CoreFile, CoreHandler, CoreInfo, CoreSetting, CoreSettingListItem, CoreSettingType},
     device::{drivers::fpga, Device},
     kvs, ui,
 };
@@ -275,16 +275,34 @@ impl Gba {
             .collect(),
             settings: [
                 CoreSetting {
+                    id: 0,
+                    label: "Reset Core".into(),
+                    address: 0x0000_0008,
+                    mask: 0,
+                    inner: CoreSettingType::Action { value: 1 },
+                },
+                CoreSetting {
                     id: 1,
-                    label: "Color Corrections".try_into().unwrap(),
+                    label: "Color Corrections".into(),
                     address: 0xFFFF_FFFF,
-                    mask: 0xFFFF_FFFF,
+                    mask: 0,
+                    inner: CoreSettingType::List {
+                        items: ["None", "GBA", "GBA SP", "NDS", "NDS Lite", "NSO GBA"]
+                            .iter()
+                            .enumerate()
+                            .map(|(i, &x)| CoreSettingListItem {
+                                value: i as u32,
+                                label: x.into(),
+                            })
+                            .collect(),
+                    },
                 },
                 CoreSetting {
                     id: 2,
-                    label: "Enable Game Boy Player".try_into().unwrap(),
+                    label: "Enable Game Boy Player".into(),
                     address: 0xFFFF_FFFF,
-                    mask: 0xFFFF_FFFF,
+                    mask: 0,
+                    inner: CoreSettingType::Checkbox { value: 1 },
                 },
             ]
             .into_iter()

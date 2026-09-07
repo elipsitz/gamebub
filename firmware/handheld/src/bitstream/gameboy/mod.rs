@@ -7,7 +7,7 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    core::{CoreFile, CoreHandler, CoreInfo, CoreSetting},
+    core::{CoreFile, CoreHandler, CoreInfo, CoreSetting, CoreSettingListItem, CoreSettingType},
     device::{drivers::fpga, Device},
     kvs,
 };
@@ -200,22 +200,50 @@ impl Gameboy {
             .collect(),
             settings: [
                 CoreSetting {
+                    id: 0,
+                    label: "Reset Core".into(),
+                    address: 0x0000_0008,
+                    mask: 0,
+                    inner: CoreSettingType::Action { value: 1 },
+                },
+                CoreSetting {
                     id: 1,
-                    label: "Enable GB Mode".try_into().unwrap(),
+                    label: "Enable GB Mode".into(),
                     address: 0xFFFF_FFFF,
-                    mask: 0xFFFF_FFFF,
+                    mask: 0,
+                    inner: CoreSettingType::Checkbox { value: 1 },
                 },
                 CoreSetting {
                     id: 2,
-                    label: "GBC Color Corrections".try_into().unwrap(),
+                    label: "GBC Color Corrections".into(),
                     address: 0xFFFF_FFFF,
-                    mask: 0xFFFF_FFFF,
+                    mask: 0,
+                    inner: CoreSettingType::List {
+                        items: ["None", "GBC", "GBA", "GBA SP"]
+                            .iter()
+                            .enumerate()
+                            .map(|(i, &x)| CoreSettingListItem {
+                                value: i as u32,
+                                label: x.into(),
+                            })
+                            .collect(),
+                    },
                 },
                 CoreSetting {
                     id: 3,
-                    label: "GB Color Palette".try_into().unwrap(),
+                    label: "GB Color Palette".into(),
                     address: 0xFFFF_FFFF,
-                    mask: 0xFFFF_FFFF,
+                    mask: 0,
+                    inner: CoreSettingType::List {
+                        items: ["Grayscale", "DMG Green", "GB Pocket"]
+                            .iter()
+                            .enumerate()
+                            .map(|(i, &x)| CoreSettingListItem {
+                                value: i as u32,
+                                label: x.into(),
+                            })
+                            .collect(),
+                    },
                 },
             ]
             .into_iter()

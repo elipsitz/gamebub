@@ -1,5 +1,6 @@
 use arrayvec::{ArrayString, ArrayVec};
 use serde::Deserialize;
+use slint::SharedString;
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 use crate::device::drivers::fpga;
@@ -68,14 +69,32 @@ pub struct CoreFile {
 pub struct CoreSetting {
     pub id: u16,
     /// User-visible label
-    pub label: ArrayString<32>,
+    pub label: SharedString,
     /// Address of the setting in the core
     /// TODO: support hex-string
     pub address: u32,
     /// Mask used when setting the value
     /// TODO: support hex-string
     pub mask: u32,
-    // TODO: add type, whatever else
+    /// Per-type information
+    pub inner: CoreSettingType,
+}
+
+pub enum CoreSettingType {
+    Action {
+        value: u32,
+    },
+    Checkbox {
+        value: u32,
+    },
+    List {
+        items: ArrayVec<CoreSettingListItem, 8>,
+    },
+}
+
+pub struct CoreSettingListItem {
+    pub label: SharedString,
+    pub value: u32,
 }
 
 impl CoreInfo {

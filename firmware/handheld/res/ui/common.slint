@@ -7,7 +7,12 @@ import {
     SettingDatetime,
 } from "screens/settings/types.slint";
 import { FileListEntry } from "components/file_list.slint";
-import { CoreSubscreen, CoreListEntry } from "screens/cores/types.slint";
+import {
+    CoreSubscreen,
+    CoreListEntry,
+    CoreSetting,
+    CoreSettingType,
+} from "screens/cores/types.slint";
 
 export enum ScreenId {
     Setup,
@@ -106,6 +111,7 @@ export global Backend {
     in-out property <string> core-error;
     in property <percent> core-progress: 0%;
     in property <bool> core-is-loading: false;
+    in property <[CoreSetting]> core-settings;
 
     callback volume-changed(int);
     callback brightness-changed(int);
@@ -117,6 +123,8 @@ export global Backend {
     callback game-set-focused(bool);
     callback game-reset();
     callback game-exit();
+    callback game-settings-load();
+    callback game-settings-set(int, int);
     callback settings-changed(int, SettingValue);
     callback settings-back() -> bool;
     callback tools-start-usb-drive();

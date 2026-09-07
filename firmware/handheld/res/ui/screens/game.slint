@@ -2,10 +2,21 @@ import { Global, ScreenId, Backend } from "../common.slint";
 import { ScreenBase } from "../components/screen.slint";
 import { Button } from "../components/button.slint";
 import { ButtonList } from "../components/button_list.slint";
+import { CoreSettingList } from "cores/core_settings.slint";
+import { CoreSettingType } from "cores/types.slint";
 
 export component GameScreen inherits ScreenBase {
     private property <bool> menu-open: false;
+    private property <bool> settings-open: false;
     forward-focus: i-focus-scope;
+
+    // /** todo: dev remove */
+    // width: 240px;
+    // height: 160px;
+    // init => {
+    //     settings-open = true;
+    //     i-settings.focus();
+    // }
 
     protected function set-menu-open(open: bool) {
         Global.ui-status-bar = open;
@@ -14,6 +25,7 @@ export component GameScreen inherits ScreenBase {
         if (menu-open) {
             i-list.focus();
         } else {
+            settings-open = false;
             i-focus-scope.focus();
         }
     }
@@ -25,6 +37,10 @@ export component GameScreen inherits ScreenBase {
             }
             if (event.text == "Power") {
                 set-menu-open(true);
+            }
+            if event.text == "b" && settings-open {
+                settings-open = false;
+                i-list.focus();
             }
             reject
         }
@@ -38,7 +54,7 @@ export component GameScreen inherits ScreenBase {
             height: i-list.min-height;
 
             i-list := ButtonList {
-                items: ["Return", "Reset", "Exit Core"];
+                items: ["Return", "Reset", "Settings", "Exit Core"];
                 on-selected(item) => {
                     if (item == 0) {
                         root.set-menu-open(false);
@@ -46,8 +62,32 @@ export component GameScreen inherits ScreenBase {
                         Backend.game-reset();
                         root.set-menu-open(false);
                     } else if (item == 2) {
+                        Backend.game-settings-load();
+                        root.settings-open = true;
+                    } else if (item == 3) {
                         Backend.game-exit();
                     }
+                }
+            }
+        }
+
+        settings := Rectangle {
+            visible: settings-open;
+            background: #FFF;
+            border-color: black;
+            border-width: 1px;
+            x: 32px;
+            y: 32px;
+            width: root.width - 64px;
+            height: root.height - 64px;
+
+            if settings-open: CoreSettingList {
+                x: 2px;
+                y: 2px;
+                width: parent.width - 4px;
+                height: parent.height - 4px;
+                init => {
+                    self.focus();
                 }
             }
         }

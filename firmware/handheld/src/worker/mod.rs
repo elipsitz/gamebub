@@ -44,6 +44,10 @@ pub enum Message {
     CoreFileCancelled,
     /// Core focus changed
     CoreFocusChanged(bool),
+    /// Load core settings
+    CoreSettingsLoad,
+    /// Core setting changed
+    CoreSettingChanged { id: u16, value: u32 },
 }
 
 /// Send a message to the worker threads.
@@ -140,6 +144,8 @@ fn dispatch(message: Message) {
         Message::CoreFileSelected(file) => CoreManager::lock().handle_file_selected(file),
         Message::CoreFileCancelled => CoreManager::lock().cancel_file_select(),
         Message::CoreFocusChanged(focused) => CoreManager::lock().focus_changed(focused),
+        Message::CoreSettingsLoad => CoreManager::lock().ui_load_settings(),
+        Message::CoreSettingChanged { id, value } => CoreManager::lock().setting_changed(id, value),
         #[allow(unreachable_patterns)]
         _ => {
             log::warn!("Unhandled message: {:?}", message);

@@ -20,6 +20,14 @@ impl UiState {
         backend.on_game_reset(move || {
             CoreManager::lock().reset_core();
         });
+        backend.on_game_settings_load(move || {
+            // TODO
+            log::info!("setting load");
+        });
+        backend.on_game_settings_set(move |index, value| {
+            // TODO
+            log::info!("setting {index} = {value:?}");
+        });
 
         let state_ = state.clone();
         backend.on_game_exit(move || {

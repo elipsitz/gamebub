@@ -11,3 +11,17 @@ export struct CoreListEntry {
     core-name: string,
     core-author: string,
 }
+
+export enum CoreSettingType {
+    action,
+    checkbox,
+    list,
+}
+
+export struct CoreSetting {
+    id: int,
+    label: string,
+    type: CoreSettingType,
+    value: int,
+    choices: [string],
+}

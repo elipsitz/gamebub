@@ -274,12 +274,6 @@ impl CoreManager {
         self.core_handler.get_mut().map(|c| c.as_legacy_bitstream())
     }
 
-    /// Legacy method, should be core-specific (setting?)
-    pub fn reset_core(&mut self) {
-        let _ = self.run_core_command(&[command::CORE_HALT], &mut [], NOTIFY_TIMEOUT);
-        let _ = self.run_core_command(&[command::CORE_RUN], &mut [], NOTIFY_TIMEOUT);
-    }
-
     pub fn prepare_for_power_off(&mut self) {
         if self.stage == Stage::Running {
             if let Err(e) = self.persist_files() {

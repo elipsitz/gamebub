@@ -281,7 +281,7 @@ impl Gba {
                 CoreSetting {
                     id: SETTING_RESET,
                     label: "Reset Core".into(),
-                    address: 0x0000_0008,
+                    address: 0x0000_2000,
                     mask: 0,
                     default: 0,
                     inner: CoreSettingType::Action { value: 1 },
@@ -575,9 +575,6 @@ impl CoreHandler for Gba {
     fn on_setting_changed(&mut self, id: u16, value: u32) {
         let mut device = Device::lock();
         match id {
-            SETTING_RESET => {
-                // todo reset
-            }
             SETTING_COLOR_CORRECTIONS => {
                 kvs::keys::GBA_COLOR_PROFILE.set(&(value as i32));
                 let correction: &ColorCorrection = {

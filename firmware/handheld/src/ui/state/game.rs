@@ -4,7 +4,6 @@ use super::super::slint::Backend;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use crate::{
-    core::CoreManager,
     device::Device,
     ui::slint::{CoreSettingType, ScreenId},
     worker,
@@ -30,9 +29,6 @@ impl UiState {
             worker::send(worker::Message::CoreFocusChanged(focused));
         });
 
-        backend.on_game_reset(move || {
-            CoreManager::lock().reset_core();
-        });
         let state_ = state.clone();
         backend.on_game_settings_load(move || {
             // Clear existing settings

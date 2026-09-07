@@ -12,10 +12,7 @@ use crate::{
     kvs,
 };
 
-use super::{
-    util::color_correction::{self, ColorCorrection},
-    Bitstream,
-};
+use super::{util::color_correction, Bitstream};
 
 mod dmg_palette;
 mod rom;
@@ -43,6 +40,11 @@ const FILE_ROM: u16 = 0;
 const FILE_SAVE: u16 = 1;
 const FILE_BIOS_CGB: u16 = 2;
 const FILE_BIOS_DMG: u16 = 3;
+
+const SETTING_RESET: u16 = 0;
+const SETTING_GB_MODE: u16 = 1;
+const SETTING_GBC_COLOR_CORRECTIONS: u16 = 2;
+const SETTING_GB_COLOR_PALETTE: u16 = 3;
 
 #[derive(Debug, Error)]
 pub enum GameboyError {
@@ -79,37 +81,10 @@ impl Gameboy {
 
     /// Prepare to load a new cartridge (physical or emulated)
     fn initialize(&mut self, device: &mut Device) -> Result<(), GameboyError> {
-        // Set configuration
-        let is_dmg = kvs::keys::GB_IS_DMG.get().unwrap();
-        let config = 0 | (((!is_dmg) as u32) << 0);
-        device.fpga.write_u32(REG_EMU_CONFIG, config)?;
-
         device.imu.disable_accel().unwrap();
 
         // Disable vblank IRQ
         device.fpga.disable_interrupt(fpga::Irq::ModuleVblank)?;
-
-        // Color correction
-        let correction: &ColorCorrection = {
-            use color_correction::presets::*;
-            let corrections = [&IDENTITY, &GBC_GBA, &GBC_GBA, &GBA_AGS101];
-            if is_dmg {
-                &IDENTITY
-            } else {
-                let setting = kvs::keys::CGB_COLOR_PROFILE.get().unwrap() as usize;
-                corrections.get(setting).unwrap_or(&&IDENTITY)
-            }
-        };
-        correction.configure(device, COLOR_CORRECTION_BASE)?;
-
-        // DMG palettes
-        if is_dmg {
-            let setting = kvs::keys::DMG_COLOR_PALETTE.get().unwrap() as usize;
-            let palette = dmg_palette::PALETTES
-                .get(setting)
-                .unwrap_or(&dmg_palette::PALETTES[0]);
-            palette.load(device)?;
-        }
 
         Ok(())
     }
@@ -122,7 +97,7 @@ impl Gameboy {
             is_built_in: true,
             files: [
                 CoreFile {
-                    id: 0,
+                    id: SETTING_RESET,
                     label: "ROM".try_into().unwrap(),
                     extensions: [".gb".try_into().unwrap(), ".gbc".try_into().unwrap()]
                         .into_iter()
@@ -204,20 +179,23 @@ impl Gameboy {
                     label: "Reset Core".into(),
                     address: 0x0000_0008,
                     mask: 0,
+                    default: 0,
                     inner: CoreSettingType::Action { value: 1 },
                 },
                 CoreSetting {
-                    id: 1,
+                    id: SETTING_GB_MODE,
                     label: "Enable GB Mode".into(),
                     address: 0xFFFF_FFFF,
                     mask: 0,
+                    default: 0,
                     inner: CoreSettingType::Checkbox { value: 1 },
                 },
                 CoreSetting {
-                    id: 2,
+                    id: SETTING_GBC_COLOR_CORRECTIONS,
                     label: "GBC Color Corrections".into(),
                     address: 0xFFFF_FFFF,
                     mask: 0,
+                    default: 1,
                     inner: CoreSettingType::List {
                         items: ["None", "GBC", "GBA", "GBA SP"]
                             .iter()
@@ -230,10 +208,11 @@ impl Gameboy {
                     },
                 },
                 CoreSetting {
-                    id: 3,
+                    id: SETTING_GB_COLOR_PALETTE,
                     label: "GB Color Palette".into(),
                     address: 0xFFFF_FFFF,
                     mask: 0,
+                    default: 1,
                     inner: CoreSettingType::List {
                         items: ["Grayscale", "DMG Green", "GB Pocket"]
                             .iter()
@@ -417,6 +396,55 @@ impl CoreHandler for Gameboy {
             let _ = device.fpga.write_u32(REG_STAT_STALLS, 0);
             let rate = (num_cycles as f32) / ((num_cycles as f32) + (num_stalls as f32));
             log::info!("Run rate: {}%", rate * 100.0);
+        }
+    }
+
+    fn load_settings(&mut self) -> Vec<(u16, u32)> {
+        vec![
+            (SETTING_GB_MODE, kvs::keys::GB_IS_DMG.get().unwrap() as u32),
+            (
+                SETTING_GBC_COLOR_CORRECTIONS,
+                kvs::keys::CGB_COLOR_PROFILE.get().unwrap() as u32,
+            ),
+            (
+                SETTING_GB_COLOR_PALETTE,
+                kvs::keys::DMG_COLOR_PALETTE.get().unwrap() as u32,
+            ),
+        ]
+    }
+
+    fn on_setting_changed(&mut self, id: u16, value: u32) {
+        let mut device = Device::lock();
+        match id {
+            SETTING_RESET => {
+                // todo reset
+            }
+            SETTING_GB_MODE => {
+                let is_dmg = value == 1;
+                let config = 0 | (((!is_dmg) as u32) << 0);
+                let _ = device.fpga.write_u32(REG_EMU_CONFIG, config);
+                kvs::keys::GB_IS_DMG.set(&is_dmg);
+            }
+            SETTING_GBC_COLOR_CORRECTIONS => {
+                kvs::keys::CGB_COLOR_PROFILE.set(&(value as i32));
+                let correction = {
+                    use color_correction::presets::*;
+                    let corrections = [&IDENTITY, &GBC_GBA, &GBC_GBA, &GBA_AGS101];
+                    if kvs::keys::GB_IS_DMG.get().unwrap_or_default() {
+                        &IDENTITY
+                    } else {
+                        corrections.get(value as usize).unwrap_or(&&IDENTITY)
+                    }
+                };
+                let _ = correction.configure(&mut device, COLOR_CORRECTION_BASE);
+            }
+            SETTING_GB_COLOR_PALETTE => {
+                let palette = dmg_palette::PALETTES
+                    .get(value as usize)
+                    .unwrap_or(&dmg_palette::PALETTES[0]);
+                let _ = palette.load(&mut device);
+            }
+            _ => {}
         }
     }
 }

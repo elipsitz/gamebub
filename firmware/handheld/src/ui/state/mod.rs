@@ -17,6 +17,8 @@ mod settings;
 mod setup;
 mod tools;
 
+pub use game::CoreSettingUiItem;
+
 pub struct UiState {
     root: Weak<MainWindow>,
 

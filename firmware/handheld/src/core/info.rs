@@ -18,7 +18,9 @@ pub struct CoreInfo {
     pub id: ArrayString<32>,
     pub name: ArrayString<32>,
     pub author: ArrayString<32>,
+    pub is_built_in: bool,
     pub files: ArrayVec<CoreFile, 8>,
+    pub settings: ArrayVec<CoreSetting, 16>,
     pub bitstream: PathBuf,
 }
 
@@ -60,6 +62,20 @@ pub struct CoreFile {
     /// Word size during transfer
     /// TODO: remove this, make all transfers 32-bit
     pub transfer_word_size: fpga::FpgaSpiWordSize,
+}
+
+#[allow(unused)]
+pub struct CoreSetting {
+    pub id: u16,
+    /// User-visible label
+    pub label: ArrayString<32>,
+    /// Address of the setting in the core
+    /// TODO: support hex-string
+    pub address: u32,
+    /// Mask used when setting the value
+    /// TODO: support hex-string
+    pub mask: u32,
+    // TODO: add type, whatever else
 }
 
 impl CoreInfo {
@@ -191,8 +207,10 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         id: json_core.metadata.id,
         name: json_core.metadata.name,
         author: json_core.metadata.author,
+        is_built_in: false,
         files: ArrayVec::new(), // TODO
         bitstream: core_dir.join(bitstream),
+        settings: ArrayVec::new(), // TODO
     })
 }
 

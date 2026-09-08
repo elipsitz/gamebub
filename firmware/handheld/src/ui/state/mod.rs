@@ -26,6 +26,7 @@ pub struct UiState {
     notification_queue: VecDeque<notifications::Notification>,
     notification_active: bool,
 
+    game_cartridge: bool,
     settings: settings::SettingsState,
     core_file_select_directory: PathBuf,
     core_file_select_filename: String,
@@ -39,6 +40,7 @@ impl UiState {
             notification_timer: Timer::default(),
             notification_queue: VecDeque::new(),
             notification_active: false,
+            game_cartridge: false,
             settings: settings::SettingsState::default(),
             core_file_select_directory: PathBuf::new(),
             core_file_select_filename: String::new(),

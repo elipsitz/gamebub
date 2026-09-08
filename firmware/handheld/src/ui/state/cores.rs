@@ -89,6 +89,7 @@ impl UiState {
     }
 
     pub fn cores_handle_run(&mut self, core_id: SharedString) {
+        self.game_cartridge = false;
         worker::send(worker::Message::RunCore(core_id.to_string()));
     }
 

@@ -60,6 +60,7 @@ slint = { version = "~1.12.1", default-features = false, features = [
     "unsafe-single-threaded",
     "libm",
     "renderer-software",
+    "serde",
 ] }
 serde = "1.0.197"
 postcard = { version = "1.0.8", default-features = false, features = [

@@ -90,6 +90,7 @@ impl UiState {
     }
 
     pub fn cores_handle_run(&mut self, core_id: SharedString) {
+        self.game_cartridge = false;
         let core_id = core_id.to_string();
         kvs::keys::LAST_CORE.set(&core_id);
         worker::send(worker::Message::RunCore(core_id));

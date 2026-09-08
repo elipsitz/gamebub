@@ -52,12 +52,16 @@ impl UiState {
             worker::send(worker::Message::ExitCore);
             // Give it a moment to start loading the boot bitstream (avoid screen flash)
             std::thread::sleep(Duration::from_millis(100));
-            // Go back to the main menu
-            let root = {
+            // Go back to the menu
+            let (root, game_cartridge) = {
                 let state = state_.borrow_mut();
-                state.root.unwrap()
+                (state.root.unwrap(), state.game_cartridge)
             };
-            root.invoke_set_screen(ScreenId::MainMenu);
+            if game_cartridge {
+                root.invoke_set_screen(ScreenId::MainMenu);
+            } else {
+                root.invoke_set_screen(ScreenId::Cores);
+            }
         });
     }
 

@@ -21,7 +21,7 @@ pub struct CoreInfo {
     pub author: ArrayString<32>,
     pub is_built_in: bool,
     pub files: ArrayVec<CoreFile, 8>,
-    pub settings: ArrayVec<CoreSetting, 16>,
+    pub settings: Vec<CoreSetting>,
     pub bitstream: PathBuf,
 }
 
@@ -65,7 +65,7 @@ pub struct CoreFile {
     pub transfer_word_size: fpga::FpgaSpiWordSize,
 }
 
-#[allow(unused)]
+#[derive(Deserialize)]
 pub struct CoreSetting {
     pub id: u16,
     /// User-visible label
@@ -75,13 +75,19 @@ pub struct CoreSetting {
     pub address: u32,
     /// Mask used when setting the value
     /// TODO: support hex-string
+    #[serde(default)]
     pub mask: u32,
     /// Default value
+    #[serde(default)]
     pub default: u32,
     /// Per-type information
+    #[serde(flatten)]
     pub inner: CoreSettingType,
 }
 
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "lowercase")]
 pub enum CoreSettingType {
     Action {
         value: u32,
@@ -94,6 +100,7 @@ pub enum CoreSettingType {
     },
 }
 
+#[derive(Deserialize)]
 pub struct CoreSettingListItem {
     pub label: SharedString,
     pub value: u32,
@@ -202,16 +209,24 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         bitstreams: Vec<JsonCoreBitstream>,
     }
 
+    #[derive(Deserialize)]
+    struct JsonSettings {
+        settings: Vec<CoreSetting>,
+    }
+
     let mut core_dir = PathBuf::from(DIR_CORES);
     core_dir.push(id);
 
     // Read core.json
-    let file = File::open(&core_dir.join("core.json")).map_err(|_| "Failed to open core.json")?;
-    let reader = BufReader::with_capacity(256, file);
-    let json_core: JsonCoreInfo =
-        serde_json::from_reader(reader).map_err(|e| format!("Failed to parse core.json: {e}"))?;
+    let json_core: JsonCoreInfo = {
+        let file =
+            File::open(&core_dir.join("core.json")).map_err(|_| "Failed to open core.json")?;
+        let reader = BufReader::with_capacity(256, file);
+        serde_json::from_reader(reader).map_err(|e| format!("Failed to parse core.json: {e}"))?
+    };
 
     // Find the right bitstream (TODO: use a visitor that extracts the right one).
+    // https://serde.rs/stream-array.html
     let bitstream = json_core
         .bitstreams
         .iter()
@@ -224,6 +239,18 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         })
         .ok_or("No compatible bitstream")?;
 
+    // Read settings.json
+    let settings = {
+        if let Ok(file) = File::open(&core_dir.join("settings.json")) {
+            let reader = BufReader::with_capacity(256, file);
+            let settings: JsonSettings = serde_json::from_reader(reader)
+                .map_err(|e| format!("Failed to parse settings.json: {e}"))?;
+            settings.settings
+        } else {
+            Vec::new()
+        }
+    };
+
     Ok(CoreInfo {
         id: json_core.metadata.id,
         name: json_core.metadata.name,
@@ -231,7 +258,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         is_built_in: false,
         files: ArrayVec::new(), // TODO
         bitstream: core_dir.join(bitstream),
-        settings: ArrayVec::new(), // TODO
+        settings,
     })
 }
 

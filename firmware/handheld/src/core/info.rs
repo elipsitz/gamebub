@@ -71,14 +71,15 @@ pub struct CoreSetting {
     /// User-visible label
     pub label: SharedString,
     /// Address of the setting in the core
-    /// TODO: support hex-string
+    #[serde(deserialize_with = "deserialize_hex_u32")]
     pub address: u32,
     /// Mask used when setting the value
-    /// TODO: support hex-string
     #[serde(default)]
+    #[serde(deserialize_with = "deserialize_hex_u32")]
     pub mask: u32,
     /// Default value
     #[serde(default)]
+    #[serde(deserialize_with = "deserialize_hex_u32")]
     pub default: u32,
     /// Per-type information
     #[serde(flatten)]
@@ -90,9 +91,11 @@ pub struct CoreSetting {
 #[serde(rename_all = "lowercase")]
 pub enum CoreSettingType {
     Action {
+        #[serde(deserialize_with = "deserialize_hex_u32")]
         value: u32,
     },
     Checkbox {
+        #[serde(deserialize_with = "deserialize_hex_u32")]
         value: u32,
     },
     List {
@@ -103,6 +106,7 @@ pub enum CoreSettingType {
 #[derive(Deserialize)]
 pub struct CoreSettingListItem {
     pub label: SharedString,
+    #[serde(deserialize_with = "deserialize_hex_u32")]
     pub value: u32,
 }
 
@@ -273,4 +277,24 @@ fn get_device_target() -> &'static str {
     const TARGET: &'static str = "gamebub_rev4";
 
     TARGET
+}
+
+/// Serde helper to deserialize a u32, either from a hex string or a number
+fn deserialize_hex_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum IntOrStr {
+        Int(u32),
+        Str(ArrayString<10>),
+    }
+    match IntOrStr::deserialize(deserializer)? {
+        IntOrStr::Int(num) => Ok(num),
+        IntOrStr::Str(str) => str
+            .strip_prefix("0x")
+            .and_then(|s| u32::from_str_radix(s, 16).ok())
+            .ok_or_else(|| serde::de::Error::custom("expected int or hex string")),
+    }
 }

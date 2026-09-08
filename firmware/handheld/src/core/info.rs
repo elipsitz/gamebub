@@ -20,12 +20,12 @@ pub struct CoreInfo {
     pub name: ArrayString<32>,
     pub author: ArrayString<32>,
     pub is_built_in: bool,
+    pub core_dir: PathBuf,
     pub files: ArrayVec<CoreFile, 8>,
     pub settings: Vec<CoreSetting>,
     pub bitstream: PathBuf,
 }
 
-#[allow(unused)]
 pub struct CoreFile {
     pub id: u16,
     pub label: ArrayString<16>,
@@ -37,8 +37,6 @@ pub struct CoreFile {
 
     /// If true, the core will still run if the file is not loaded.
     pub optional: bool,
-    /// If true, file will be loaded at core start and saved at core end.
-    // persistent: bool,
     /// If true, file is treated as read-only, won't be saved at core end.
     pub read_only: bool,
     /// If true, the file path is selected by the user (filtered by extensions).
@@ -263,6 +261,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         files: ArrayVec::new(), // TODO
         bitstream: core_dir.join(bitstream),
         settings,
+        core_dir,
     })
 }
 

@@ -10,7 +10,7 @@ use rtc::RtcState;
 use thiserror::Error;
 
 use crate::{
-    core::{CoreFile, CoreHandler, CoreInfo},
+    core::{CoreFile, CoreHandler, CoreInfo, CoreSetting},
     device::{drivers::fpga, Device},
     kvs, ui,
 };
@@ -214,6 +214,7 @@ impl Gba {
             id: "Game-Bub.GBA".try_into().unwrap(),
             name: "Game Boy Advance".try_into().unwrap(),
             author: "Game Bub".try_into().unwrap(),
+            is_built_in: true,
             files: [
                 CoreFile {
                     id: 0,
@@ -268,6 +269,22 @@ impl Gba {
                     exact_size: 16 * 1024,
                     max_transfer_speed: 20_000, // 20 MB/s
                     transfer_word_size: fpga::FpgaSpiWordSize::Bits32,
+                },
+            ]
+            .into_iter()
+            .collect(),
+            settings: [
+                CoreSetting {
+                    id: 1,
+                    label: "Color Corrections".try_into().unwrap(),
+                    address: 0xFFFF_FFFF,
+                    mask: 0xFFFF_FFFF,
+                },
+                CoreSetting {
+                    id: 2,
+                    label: "Enable Game Boy Player".try_into().unwrap(),
+                    address: 0xFFFF_FFFF,
+                    mask: 0xFFFF_FFFF,
                 },
             ]
             .into_iter()

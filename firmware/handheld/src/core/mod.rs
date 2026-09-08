@@ -22,6 +22,7 @@ use crate::{
 pub use info::CoreFile;
 pub use info::CoreInfo;
 pub use info::CoreListEntry;
+pub use info::CoreSetting;
 use settings::CoreSettings;
 
 mod info;

@@ -7,7 +7,7 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    core::{CoreFile, CoreHandler, CoreInfo},
+    core::{CoreFile, CoreHandler, CoreInfo, CoreSetting},
     device::{drivers::fpga, Device},
     kvs,
 };
@@ -119,6 +119,7 @@ impl Gameboy {
             id: "Game-Bub.GB".try_into().unwrap(),
             name: "Game Boy / Game Boy Color".try_into().unwrap(),
             author: "Game Bub".try_into().unwrap(),
+            is_built_in: true,
             files: [
                 CoreFile {
                     id: 0,
@@ -193,6 +194,28 @@ impl Gameboy {
                     exact_size: 256,
                     max_transfer_speed: 5_000, // 5 MB/s
                     transfer_word_size: fpga::FpgaSpiWordSize::Bits8,
+                },
+            ]
+            .into_iter()
+            .collect(),
+            settings: [
+                CoreSetting {
+                    id: 1,
+                    label: "Enable GB Mode".try_into().unwrap(),
+                    address: 0xFFFF_FFFF,
+                    mask: 0xFFFF_FFFF,
+                },
+                CoreSetting {
+                    id: 2,
+                    label: "GBC Color Corrections".try_into().unwrap(),
+                    address: 0xFFFF_FFFF,
+                    mask: 0xFFFF_FFFF,
+                },
+                CoreSetting {
+                    id: 3,
+                    label: "GB Color Palette".try_into().unwrap(),
+                    address: 0xFFFF_FFFF,
+                    mask: 0xFFFF_FFFF,
                 },
             ]
             .into_iter()

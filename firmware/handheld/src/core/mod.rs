@@ -556,11 +556,11 @@ impl CoreManager {
             // Get the file path
             let mut path = self.selected_files[i].clone();
 
-            // TODO if asset path is not none, construct path based on that
-
-            if info.dependent_on_0 {
+            if let Some(filename) = info.filename.as_ref() {
+                // Construct path based on core directory
+                path = Some(core.core_dir.join(filename));
+            } else if info.dependent_on_0 {
                 // Construct a new path based on file 0's path
-                assert!(path.is_none());
                 let extension = &info.extensions[0][1..]; // Remove the dot
                 let file_0_index = file_0_index.unwrap();
                 path = self.selected_files[file_0_index]

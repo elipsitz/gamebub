@@ -228,6 +228,7 @@ impl Gba {
             name: "Game Boy Advance".try_into().unwrap(),
             author: "Game Bub".try_into().unwrap(),
             is_built_in: true,
+            core_dir: PathBuf::new(),
             files: [
                 CoreFile {
                     id: FILE_CONFIG_OVERRIDE,

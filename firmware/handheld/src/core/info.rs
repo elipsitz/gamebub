@@ -21,45 +21,59 @@ pub struct CoreInfo {
     pub author: ArrayString<32>,
     pub is_built_in: bool,
     pub core_dir: PathBuf,
-    pub files: ArrayVec<CoreFile, 8>,
+    pub files: Vec<CoreFile>,
     pub settings: Vec<CoreSetting>,
     pub bitstream: PathBuf,
 }
 
+#[derive(Deserialize)]
 pub struct CoreFile {
     pub id: u16,
     pub label: ArrayString<16>,
+
     /// If set, the file will be loaded from this path relative to the asset path.
+    #[serde(default)]
     pub filename: Option<ArrayString<32>>,
 
     /// List of file extensions (optional).
+    #[serde(default)]
     pub extensions: ArrayVec<ArrayString<8>, 4>,
 
     /// If true, the core will still run if the file is not loaded.
+    #[serde(default = "default_true")]
     pub optional: bool,
     /// If true, file is treated as read-only, won't be saved at core end.
+    #[serde(default)]
     pub read_only: bool,
     /// If true, the file path is selected by the user (filtered by extensions).
+    #[serde(default)]
     pub user_selected: bool,
     /// If true, dependent on the file with ID 0 (and the path is determined based on that path + this extension).
+    #[serde(default)]
     pub dependent_on_0: bool,
     /// If true, if the file is not loaded, the region will still be initialized with 0xFFs.
+    #[serde(default)]
     pub initialize: bool,
 
     /// The address to load the file to.
-    /// TODO: support hex-string
+    #[serde(deserialize_with = "deserialize_hex_u32")]
     pub address: u32,
     /// Maximum size of the file.
-    /// TODO: support hex-string
+    #[serde(default)]
+    #[serde(deserialize_with = "deserialize_hex_u32")]
     pub max_size: u32,
     /// Exact size of the file.
-    /// TODO: support hex-string
+    #[serde(default)]
+    #[serde(deserialize_with = "deserialize_hex_u32")]
     pub exact_size: u32,
-    /// Maximum read/write speed when loading/saving the file (in KB/s)
+    /// Maximum read/write speed when loading/saving the file (in KB/s). Default 5000 KB/sec
+    #[serde(default = "default_transfer_speed")]
     pub max_transfer_speed: u32,
 
     /// Word size during transfer
     /// TODO: remove this, make all transfers 32-bit
+    #[serde(skip)]
+    #[serde(default = "default_transfer_word_size")]
     pub transfer_word_size: fpga::FpgaSpiWordSize,
 }
 
@@ -216,6 +230,11 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         settings: Vec<CoreSetting>,
     }
 
+    #[derive(Deserialize)]
+    struct JsonFiles {
+        files: Vec<CoreFile>,
+    }
+
     let mut core_dir = PathBuf::from(DIR_CORES);
     core_dir.push(id);
 
@@ -253,12 +272,24 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         }
     };
 
+    // Read files.json
+    let files = {
+        if let Ok(file) = File::open(&core_dir.join("files.json")) {
+            let reader: BufReader<File> = BufReader::with_capacity(256, file);
+            let files: JsonFiles = serde_json::from_reader(reader)
+                .map_err(|e| format!("Failed to parse files.json: {e}"))?;
+            files.files
+        } else {
+            Vec::new()
+        }
+    };
+
     Ok(CoreInfo {
         id: json_core.metadata.id,
         name: json_core.metadata.name,
         author: json_core.metadata.author,
         is_built_in: false,
-        files: ArrayVec::new(), // TODO
+        files,
         bitstream: core_dir.join(bitstream),
         settings,
         core_dir,
@@ -296,4 +327,16 @@ where
             .and_then(|s| u32::from_str_radix(s, 16).ok())
             .ok_or_else(|| serde::de::Error::custom("expected int or hex string")),
     }
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_transfer_speed() -> u32 {
+    5000
+}
+
+fn default_transfer_word_size() -> fpga::FpgaSpiWordSize {
+    fpga::FpgaSpiWordSize::Bits32
 }

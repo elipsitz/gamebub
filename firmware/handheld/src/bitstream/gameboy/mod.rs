@@ -7,7 +7,10 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    core::{CoreFile, CoreHandler, CoreInfo, CoreSetting, CoreSettingListItem, CoreSettingType},
+    core::{
+        CoreCartridgeMode, CoreFile, CoreHandler, CoreInfo, CoreSetting, CoreSettingListItem,
+        CoreSettingType,
+    },
     device::{drivers::fpga, Device},
     kvs,
 };
@@ -97,6 +100,7 @@ impl Gameboy {
             author: "Game Bub".try_into().unwrap(),
             is_built_in: true,
             core_dir: PathBuf::new(),
+            uses_cartridge: CoreCartridgeMode::IfSelected,
             files: [
                 CoreFile {
                     id: SETTING_RESET,

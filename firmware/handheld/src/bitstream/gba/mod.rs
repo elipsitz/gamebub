@@ -11,7 +11,10 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{
-    core::{CoreFile, CoreHandler, CoreInfo, CoreSetting, CoreSettingListItem, CoreSettingType},
+    core::{
+        CoreCartridgeMode, CoreFile, CoreHandler, CoreInfo, CoreSetting, CoreSettingListItem,
+        CoreSettingType,
+    },
     device::{drivers::fpga, Device},
     kvs, ui,
 };
@@ -229,6 +232,7 @@ impl Gba {
             author: "Game Bub".try_into().unwrap(),
             is_built_in: true,
             core_dir: PathBuf::new(),
+            uses_cartridge: CoreCartridgeMode::IfSelected,
             files: [
                 CoreFile {
                     id: FILE_CONFIG_OVERRIDE,

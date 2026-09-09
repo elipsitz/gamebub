@@ -14,16 +14,27 @@ pub struct CoreListEntry {
     pub author: ArrayString<32>,
 }
 
-#[allow(unused)]
 pub struct CoreInfo {
     pub id: ArrayString<32>,
+    #[expect(unused)]
     pub name: ArrayString<32>,
+    #[expect(unused)]
     pub author: ArrayString<32>,
     pub is_built_in: bool,
     pub core_dir: PathBuf,
     pub files: Vec<CoreFile>,
     pub settings: Vec<CoreSetting>,
     pub bitstream: PathBuf,
+    pub uses_cartridge: CoreCartridgeMode,
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CoreCartridgeMode {
+    #[default]
+    No,
+    Yes,
+    IfSelected,
 }
 
 #[derive(Deserialize)]
@@ -219,10 +230,21 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         pub filename: ArrayString<32>,
     }
 
+    #[derive(Deserialize, Default)]
+    struct JsonCoreHardware {
+        #[serde(default)]
+        pub cartridge_enable: CoreCartridgeMode,
+        #[serde(default)]
+        #[expect(unused)]
+        pub cartridge_selectable: bool,
+    }
+
     #[derive(Deserialize)]
     struct JsonCoreInfo {
         metadata: JsonCoreMetadata,
         bitstreams: Vec<JsonCoreBitstream>,
+        #[serde(default)]
+        hardware: JsonCoreHardware,
     }
 
     #[derive(Deserialize)]
@@ -288,6 +310,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         id: json_core.metadata.id,
         name: json_core.metadata.name,
         author: json_core.metadata.author,
+        uses_cartridge: json_core.hardware.cartridge_enable,
         is_built_in: false,
         files,
         bitstream: core_dir.join(bitstream),

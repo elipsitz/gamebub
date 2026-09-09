@@ -476,7 +476,12 @@ impl CoreManager {
         self.poll_core_status(command::STATUS_SETUP, SETUP_TIMEOUT)?;
         ui::send(ui::Message::EnterGame);
 
-        if self.run_cartridge {
+        let cart_power = match self.core_info.as_ref().unwrap().uses_cartridge {
+            CoreCartridgeMode::No => false,
+            CoreCartridgeMode::Yes => true,
+            CoreCartridgeMode::IfSelected => self.run_cartridge,
+        };
+        if cart_power {
             let mut device = Device::lock();
             // Power turned off in reset_state.
             device.set_cart_power(true);

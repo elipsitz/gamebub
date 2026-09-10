@@ -105,7 +105,7 @@ impl Gameboy {
                 CoreFile {
                     id: SETTING_RESET,
                     label: "ROM".try_into().unwrap(),
-                    extensions: [".gb".try_into().unwrap(), ".gbc".try_into().unwrap()]
+                    extensions: ["gb".try_into().unwrap(), "gbc".try_into().unwrap()]
                         .into_iter()
                         .collect(),
                     filename: None,
@@ -125,7 +125,7 @@ impl Gameboy {
                 CoreFile {
                     id: 1,
                     label: "Save".try_into().unwrap(),
-                    extensions: [".sav".try_into().unwrap()].into_iter().collect(),
+                    extensions: ["sav".try_into().unwrap()].into_iter().collect(),
                     filename: None,
 
                     optional: true,
@@ -143,7 +143,7 @@ impl Gameboy {
                 CoreFile {
                     id: 2,
                     label: "BIOS CGB".try_into().unwrap(),
-                    extensions: [".bin".try_into().unwrap()].into_iter().collect(),
+                    extensions: ["bin".try_into().unwrap()].into_iter().collect(),
                     filename: None, // TODO
 
                     optional: false,
@@ -161,7 +161,7 @@ impl Gameboy {
                 CoreFile {
                     id: 3,
                     label: "BIOS DMG".try_into().unwrap(),
-                    extensions: [".bin".try_into().unwrap()].into_iter().collect(),
+                    extensions: ["bin".try_into().unwrap()].into_iter().collect(),
                     filename: None, // TODO
 
                     optional: false,

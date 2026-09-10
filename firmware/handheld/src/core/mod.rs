@@ -566,7 +566,7 @@ impl CoreManager {
                 path = Some(core.core_dir.join(filename));
             } else if info.dependent_on_0 {
                 // Construct a new path based on file 0's path
-                let extension = &info.extensions[0][1..]; // Remove the dot
+                let extension = info.extensions[0].as_str();
                 let file_0_index = file_0_index.unwrap();
                 path = self.selected_files[file_0_index]
                     .as_ref()
@@ -850,7 +850,18 @@ impl CoreManager {
             Stage::LoadSelectFile(i) => i,
             _ => panic!(),
         };
-        let extensions = &self.core_info.as_ref().unwrap().files[file_index].extensions;
+
+        // Prepend . to extensions to make matching easier
+        let extensions = self.core_info.as_ref().unwrap().files[file_index]
+            .extensions
+            .iter()
+            .map(|e| {
+                let mut extension = arrayvec::ArrayString::<9>::new();
+                extension.push('.');
+                extension.push_str(e.as_str());
+                extension
+            })
+            .collect::<arrayvec::ArrayVec<_, 4>>();
 
         let mut files = path
             .read_dir()?

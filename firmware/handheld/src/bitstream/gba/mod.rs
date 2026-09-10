@@ -228,7 +228,7 @@ impl Gba {
                 CoreFile {
                     id: 0,
                     label: "ROM".try_into().unwrap(),
-                    extensions: [".gba".try_into().unwrap()].into_iter().collect(),
+                    extensions: ["gba".try_into().unwrap()].into_iter().collect(),
                     filename: None,
 
                     optional: true,
@@ -246,7 +246,7 @@ impl Gba {
                 CoreFile {
                     id: 1,
                     label: "Save".try_into().unwrap(),
-                    extensions: [".sav".try_into().unwrap()].into_iter().collect(),
+                    extensions: ["sav".try_into().unwrap()].into_iter().collect(),
                     filename: None,
 
                     optional: true,
@@ -264,7 +264,7 @@ impl Gba {
                 CoreFile {
                     id: 2,
                     label: "BIOS".try_into().unwrap(),
-                    extensions: [".bin".try_into().unwrap()].into_iter().collect(),
+                    extensions: ["bin".try_into().unwrap()].into_iter().collect(),
                     filename: None, // TODO
 
                     optional: false,

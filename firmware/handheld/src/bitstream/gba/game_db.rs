@@ -15,6 +15,8 @@ macro_rules! config {
 
 /// The game database.
 static DATABASE: &[(&'static [u8; 4], EmulatedCartridgeConfig)] = &[
+    // Pokemon Fire Red (for Unbound)
+    (b"BPRE", config!(Flash128K, has_rtc)),
     // Pokemon Sapphire
     (b"AXPJ", config!(Flash128K, has_rtc)),
     (b"AXPE", config!(Flash128K, has_rtc)),

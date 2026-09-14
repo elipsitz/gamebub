@@ -33,7 +33,7 @@ impl RtcState {
             year: encode_bcd((dt.year() % 100) as u8),
             month: encode_bcd(dt.month() as u8),
             day: encode_bcd(dt.day()),
-            weekday: encode_bcd(dt.weekday().number_days_from_monday()),
+            weekday: encode_bcd(dt.weekday().number_days_from_sunday()),
             hour: encode_bcd(dt.hour()),
             minute: encode_bcd(dt.minute()),
             second: encode_bcd(dt.second()),

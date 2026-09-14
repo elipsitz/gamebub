@@ -28,12 +28,12 @@ impl RtcState {
     #[allow(unused)]
     pub const STATUS_12H: u8 = 0x0;
 
-    pub fn from_offset_date_time(dt: OffsetDateTime) -> Self {
+    pub fn from_offset_date_time(dt: OffsetDateTime, sunday_offset: u8) -> Self {
         RtcState {
             year: encode_bcd((dt.year() % 100) as u8),
             month: encode_bcd(dt.month() as u8),
             day: encode_bcd(dt.day()),
-            weekday: encode_bcd(dt.weekday().number_days_from_monday()),
+            weekday: encode_bcd((dt.weekday().number_days_from_sunday() + sunday_offset) % 7),
             hour: encode_bcd(dt.hour()),
             minute: encode_bcd(dt.minute()),
             second: encode_bcd(dt.second()),
@@ -41,7 +41,7 @@ impl RtcState {
         }
     }
 
-    pub fn to_offset_date_time(self) -> Result<OffsetDateTime, ()> {
+    pub fn to_offset_date_time(self) -> Result<(OffsetDateTime, u8), ()> {
         let date = Date::from_calendar_date(
             2000 + decode_bcd(self.year) as i32,
             decode_bcd(self.month).try_into().map_err(|_| ())?,
@@ -54,7 +54,10 @@ impl RtcState {
             decode_bcd(self.second),
         )
         .map_err(|_| ())?;
-        Ok(OffsetDateTime::new_utc(date, time))
+        let dt = OffsetDateTime::new_utc(date, time);
+        let stored_weekday = decode_bcd(self.weekday);
+        let actual_weekday = dt.weekday().number_days_from_sunday();
+        Ok((dt, (stored_weekday + 7 - actual_weekday) % 7))
     }
 
     /// Convert from FPGA state

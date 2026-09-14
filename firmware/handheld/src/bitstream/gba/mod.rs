@@ -398,9 +398,10 @@ impl CoreHandler for Gba {
                         .saturating_sub_unsigned(rtc_timestamp);
 
                     match prev_state.to_offset_date_time() {
-                        Ok(time) => {
+                        Ok((time, sunday_offset)) => {
                             let datetime = time.saturating_add(time::Duration::seconds(elapsed));
-                            let new_state = RtcState::from_offset_date_time(datetime);
+                            let new_state =
+                                RtcState::from_offset_date_time(datetime, sunday_offset);
                             log::info!(
                                 "Loaded saved RTC state: {:?}, elapsed={}",
                                 new_state,
@@ -463,7 +464,7 @@ impl CoreHandler for Gba {
                 Some(state) => state,
                 None => {
                     let datetime = device.get_datetime();
-                    RtcState::from_offset_date_time(datetime)
+                    RtcState::from_offset_date_time(datetime, 0)
                 }
             };
             let (rtc_lo, rtc_hi) = rtc_state.to_fpga();

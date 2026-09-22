@@ -4,7 +4,7 @@ CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=240
 
 # Boost the size of the I-cache and D-cache to improve UI performance
 CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB=y
-CONFIG_ESP32S3_DATA_CACHE_64KB=y
+CONFIG_ESP32S3_DATA_CACHE_32KB=y
 
 # Rust often needs a bit of an extra main task stack size compared to C (the default is 3K)
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=20480

@@ -20,6 +20,12 @@ This project is a labor of love, and code quality and readability are valued abo
 
 Additionally, please break up your contributions into manageable, organized commits, with useful commit messages. This makes it significantly easier to review your code.
 
+### Commit Messages
+
+The first line of your commit message should start with `fpga: `, `firmware: `, etc. to show the primary high-level area it touches.
+
+Most commits should also include a paragraph after that, *briefly* summarizing the commit. A longer message may be useful if, for example, the commit fixes a subtle bug that requires additional explanation.
+
 ### AI/LLM Usage
 
 This project was originally developed without any AI assistance, but we recognize that AI tools may be a useful aid in your development workflow. While we don't feel comfortable strictly disallowing all usages of AI, we do require it to be used in a responsible, respectful way. 

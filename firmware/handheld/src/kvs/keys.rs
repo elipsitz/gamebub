@@ -45,6 +45,9 @@ pub static LAST_FIRMWARE_VERSION: KvsKey<String> = KvsKey::new("last-fw-version"
 /// Warn if no GBA bios is provided
 pub static GBA_BIOS_WARNING: KvsKey<bool> = KvsKey::new_with_default("gba-warn-bios", true);
 
+/// Last core that was run
+pub static LAST_CORE: KvsKey<String> = KvsKey::new("last-core");
+
 pub fn flush_all() {
     SETUP_STAGE.flush();
     UPTIME.flush();
@@ -61,4 +64,5 @@ pub fn flush_all() {
     STARTUP_ACTION.flush();
     LAST_FIRMWARE_VERSION.flush();
     GBA_BIOS_WARNING.flush();
+    LAST_CORE.flush();
 }

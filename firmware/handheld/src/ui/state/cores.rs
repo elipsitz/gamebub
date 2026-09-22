@@ -10,6 +10,7 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use crate::{
     device::Device,
+    kvs,
     ui::slint::{CoreSubscreen, FileIcon, ScreenId},
     worker,
 };
@@ -89,10 +90,17 @@ impl UiState {
     }
 
     pub fn cores_handle_run(&mut self, core_id: SharedString) {
-        worker::send(worker::Message::RunCore(core_id.to_string()));
+        let core_id = core_id.to_string();
+        kvs::keys::LAST_CORE.set(&core_id);
+        worker::send(worker::Message::RunCore(core_id));
     }
 
     pub fn cores_list(&mut self, list: Vec<crate::core::CoreListEntry>) {
+        let last_core = kvs::keys::LAST_CORE.get();
+        let selected_index = last_core
+            .and_then(|last_core| list.iter().position(|x| x.id.as_str() == last_core))
+            .unwrap_or(0);
+
         let list = ModelRc::from(Rc::new(VecModel::from(
             list.into_iter()
                 .map(|item| crate::ui::slint::CoreListEntry {
@@ -104,6 +112,7 @@ impl UiState {
         )));
         let root = self.root.unwrap();
         let backend = root.global::<Backend>();
+        backend.set_core_list_index(selected_index as i32);
         backend.set_core_list(list);
     }
 

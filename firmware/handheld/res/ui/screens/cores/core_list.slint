@@ -1,3 +1,4 @@
+import { Backend } from "../../common.slint";
 import { ListViewBase } from "../../components/list_view.slint";
 import { ControlHint } from "../../components/control_hint.slint";
 import { CoreListEntry } from "types.slint";
@@ -70,6 +71,7 @@ export component CoreList {
             i-list := ListViewBase {
                 num-items: cores.length;
                 wrap: true;
+                focus-item <=> Backend.core-list-index;
 
                 for item[index] in cores: child-items := CoreListItem {
                     core: item;

@@ -170,7 +170,11 @@ pub fn list_cores() -> Vec<CoreListEntry> {
             };
 
             // Skip non-directories
-            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            if !entry
+                .metadata()
+                .map(|t| t.file_type().is_dir())
+                .unwrap_or(false)
+            {
                 continue;
             }
 

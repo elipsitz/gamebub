@@ -18,7 +18,7 @@ impl SaveTypeDetector {
     }
 
     pub fn get(&self) -> SaveType {
-        self.detected.unwrap_or_default()
+        self.detected.unwrap_or(SaveType::None)
     }
 
     fn search(data: &[u8]) -> Option<SaveType> {

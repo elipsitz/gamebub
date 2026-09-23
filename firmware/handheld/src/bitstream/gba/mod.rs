@@ -7,6 +7,7 @@ use std::{
 
 use esp_idf_svc::hal::units::Hertz;
 use rtc::RtcState;
+use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{
@@ -43,6 +44,7 @@ const COLOR_CORRECTION_BASE: u32 = 0x5000_0000;
 const FILE_ROM: u16 = 0;
 const FILE_SAVE: u16 = 1;
 const FILE_BIOS: u16 = 2;
+const FILE_CONFIG_OVERRIDE: u16 = 3;
 
 #[derive(Debug, Error)]
 pub enum GbaError {
@@ -52,11 +54,13 @@ pub enum GbaError {
     FpgaError(#[from] crate::device::drivers::fpga::Error),
 }
 
-#[allow(unused)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum SaveType {
-    /// No backup
+    /// Autodetect
     #[default]
+    Autodetect,
+    /// No backup
     None,
     /// EEPROM - Autodetect Size
     EepromAuto,
@@ -75,7 +79,7 @@ enum SaveType {
 impl SaveType {
     fn get_size(self) -> usize {
         match self {
-            Self::None => 0,
+            Self::None | Self::Autodetect => 0,
             Self::EepromAuto | Self::Eeprom8K => 8 * 1024,
             Self::Eeprom512 => 512,
             Self::Sram => 32 * 1024,
@@ -83,9 +87,14 @@ impl SaveType {
             Self::Flash128K => 128 * 1024,
         }
     }
+
+    fn autodetect(self) -> bool {
+        self == Self::Autodetect
+    }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Default)]
+#[serde(default)]
 struct EmulatedCartridgeConfig {
     pub save_type: SaveType,
     pub has_rumble: bool,
@@ -111,7 +120,7 @@ impl EmulatedCartridgeConfig {
 
     fn as_config_u32(self) -> u32 {
         let backup: u32 = match self.save_type {
-            SaveType::None => 0b0000,
+            SaveType::None | SaveType::Autodetect => 0b0000,
             SaveType::Sram => 0b0001,
             SaveType::Flash64K => 0b0010,
             SaveType::Flash128K => 0b0110,
@@ -216,7 +225,25 @@ impl Gba {
             author: "Game Bub".try_into().unwrap(),
             files: [
                 CoreFile {
-                    id: 0,
+                    id: FILE_CONFIG_OVERRIDE,
+                    label: "Config Override".try_into().unwrap(),
+                    extensions: [".json".try_into().unwrap()].into_iter().collect(),
+                    filename: None,
+
+                    optional: true,
+                    read_only: true,
+                    user_selected: false,
+                    dependent_on_0: true,
+                    initialize: true,
+
+                    address: 0x2000_0000, // Nowhere (unmapped)
+                    max_size: 0,
+                    exact_size: 0,
+                    max_transfer_speed: 10_000, // 10 MB/s
+                    transfer_word_size: fpga::FpgaSpiWordSize::Bits32,
+                },
+                CoreFile {
+                    id: FILE_ROM,
                     label: "ROM".try_into().unwrap(),
                     extensions: [".gba".try_into().unwrap()].into_iter().collect(),
                     filename: None,
@@ -234,7 +261,7 @@ impl Gba {
                     transfer_word_size: fpga::FpgaSpiWordSize::Bits32,
                 },
                 CoreFile {
-                    id: 1,
+                    id: FILE_SAVE,
                     label: "Save".try_into().unwrap(),
                     extensions: [".sav".try_into().unwrap()].into_iter().collect(),
                     filename: None,
@@ -252,7 +279,7 @@ impl Gba {
                     transfer_word_size: fpga::FpgaSpiWordSize::Bits16,
                 },
                 CoreFile {
-                    id: 2,
+                    id: FILE_BIOS,
                     label: "BIOS".try_into().unwrap(),
                     extensions: [".bin".try_into().unwrap()].into_iter().collect(),
                     filename: None, // TODO
@@ -332,7 +359,9 @@ impl CoreHandler for Gba {
             file.read(&mut rom_header).map_err(|_| "I/O")?;
             file.seek(std::io::SeekFrom::Start(0)).map_err(|_| "I/O")?;
             let rom_header = RomHeader::parse(rom_header);
-            self.emu_cart_config = game_db::lookup(&rom_header.game_code);
+            if self.emu_cart_config.is_none() {
+                self.emu_cart_config = game_db::lookup(&rom_header.game_code);
+            }
             self.rom_header = Some(rom_header);
         } else if id == FILE_SAVE {
             let emu_cart_config = self.emu_cart_config.as_ref().unwrap();
@@ -368,6 +397,10 @@ impl CoreHandler for Gba {
                 }
                 file.seek(std::io::SeekFrom::Start(0)).map_err(|_| "I/O")?;
             }
+        } else if id == FILE_CONFIG_OVERRIDE {
+            let config: EmulatedCartridgeConfig =
+                serde_json::from_reader(file).map_err(|e| e.to_string())?;
+            self.emu_cart_config = Some(config);
         }
         Ok(())
     }
@@ -376,7 +409,11 @@ impl CoreHandler for Gba {
         if id != FILE_ROM {
             return;
         }
-        if self.emu_cart_config.is_none() {
+
+        let autodetect = self
+            .emu_cart_config
+            .map_or(true, |x| x.save_type.autodetect());
+        if autodetect {
             self.save_type_detector.process(data);
         }
     }
@@ -385,14 +422,18 @@ impl CoreHandler for Gba {
         if id != FILE_ROM {
             return;
         }
-        match self.emu_cart_config {
-            Some(config) => log::info!("Using save config: {:?}", config.save_type),
-            None => {
-                log::info!("Detected save type: {:?}", self.save_type_detector.get());
-                self.emu_cart_config = Some(EmulatedCartridgeConfig::from_save_type(
-                    self.save_type_detector.get(),
-                ));
-            }
+
+        let autodetect = self
+            .emu_cart_config
+            .map_or(true, |x| x.save_type.autodetect());
+        if autodetect {
+            log::info!("Detected save type: {:?}", self.save_type_detector.get());
+            self.emu_cart_config.get_or_insert_default().save_type = self.save_type_detector.get();
+        } else {
+            log::info!(
+                "Using save config: {:?}",
+                self.emu_cart_config.as_ref().unwrap().save_type
+            );
         }
     }
 

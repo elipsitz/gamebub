@@ -22,7 +22,7 @@ object HandheldGba {
   /// Single-entry cache that accounts for the fact that sequential 16-bit accesses
   /// (from emulated cartridge) turn into repeated 32-bit SDRAM accesses.
   /// This cache returns the last read if it's in the same 32-bit word.
-  private class MiniCache(addressWidth: Int, dataWidth: Int) extends Module {
+  private[gba] class MiniCache(addressWidth: Int, dataWidth: Int) extends Module {
     val io = IO(new Bundle {
       val in = new PipelineMemoryInterface(addressWidth, dataWidth)
       val out = Flipped(new PipelineMemoryInterface(addressWidth, dataWidth))
@@ -36,6 +36,7 @@ object HandheldGba {
 
     val regBusy = RegInit(false.B)
     val regBusyLocal = Reg(Bool())
+    val regLastValid = RegInit(false.B)
     val regLastAddress = Reg(UInt(addressWidth.W))
     val regLastData = Reg(UInt(dataWidth.W))
 
@@ -60,11 +61,12 @@ object HandheldGba {
 
     when (io.in.ready && io.in.enable) {
       regBusy := true.B
-      when (regLastAddress === io.in.address) {
+      when (regLastValid && regLastAddress === io.in.address) {
         regBusyLocal := true.B
       } .otherwise {
         regBusyLocal := false.B
         io.out.enable := true.B
+        regLastValid := true.B
         regLastAddress := io.out.address
       }
     }

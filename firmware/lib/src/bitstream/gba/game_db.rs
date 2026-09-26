@@ -83,3 +83,35 @@ pub fn lookup(key: &[u8; 4]) -> Option<EmulatedCartridgeConfig> {
         .find(|(&code, _)| *key == code)
         .map(|(_, config)| config.clone())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pokemon_fire_red() {
+        assert!(lookup("BPRE".as_bytes().try_into().unwrap()).is_none());
+    }
+
+    #[test]
+    fn test_pokemon_sapphire() {
+        let axpj = lookup("AXPJ".as_bytes().try_into().unwrap()).unwrap();
+        assert_eq!(axpj.save_type, SaveType::Flash128K);
+        assert!(!axpj.has_rumble);
+        assert!(axpj.has_rtc);
+        assert!(!axpj.has_accel);
+        assert!(!axpj.has_gyro);
+        assert!(!axpj.has_solar);
+    }
+
+    #[test]
+    fn test_goodboy_galaxy() {
+        let twogbp = lookup("2GBP".as_bytes().try_into().unwrap()).unwrap();
+        assert_eq!(twogbp.save_type, SaveType::Sram);
+        assert!(twogbp.has_rumble);
+        assert!(!twogbp.has_rtc);
+        assert!(!twogbp.has_accel);
+        assert!(!twogbp.has_gyro);
+        assert!(!twogbp.has_solar);
+    }
+}

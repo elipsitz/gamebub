@@ -152,6 +152,12 @@ impl InputManager {
     pub fn update_gamepad(&mut self, id: GamepadId, state: InputState) {
         if let Some(gamepad) = self.find_gamepad(id) {
             gamepad.state = state;
+
+            if crate::kvs::keys::DOCK_SWAP_ABXY.get().unwrap() {
+                std::mem::swap(&mut gamepad.state.btn_a, &mut gamepad.state.btn_b);
+                std::mem::swap(&mut gamepad.state.btn_x, &mut gamepad.state.btn_y);
+            }
+
             self.send_event();
         }
     }

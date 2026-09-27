@@ -20,3 +20,4 @@ ESP_IDF_TOOLS_INSTALL_DIR = "global"
 CARGO_WORKSPACE_DIR = { value = "", relative = true }
 # Needed on macOS: https://github.com/esp-rs/esp-idf-template/issues/174
 CRATE_CC_NO_DEFAULTS = "1"
+BINDGEN_EXTRA_CLANG_ARGS = "-DCFG_TUSB_MCU=OPT_MCU_ESP32S3"

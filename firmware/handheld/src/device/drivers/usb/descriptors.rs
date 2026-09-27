@@ -305,6 +305,7 @@ impl Descriptors {
                 full_speed_config: self.configuration.as_ptr(),
                 high_speed_config: std::ptr::null(),
             },
+            pm_lock_enable: false,
             // TODO event callback
             event_cb: None,
             event_arg: std::ptr::null_mut(),

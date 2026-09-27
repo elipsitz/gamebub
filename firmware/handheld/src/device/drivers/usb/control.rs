@@ -155,3 +155,12 @@ pub extern "C" fn tud_vendor_control_xfer_cb(
         _ => false,
     }
 }
+
+#[no_mangle]
+pub extern "C" fn tud_vendor_rx_cb(itf: u8, buffer: *const u8, bufsize: u16) {
+    if (itf as u16) != VENDOR_INTERFACE {
+        return;
+    }
+    let data = unsafe { std::slice::from_raw_parts(buffer, bufsize as usize) };
+    crate::control::handle_bulk_in(data);
+}

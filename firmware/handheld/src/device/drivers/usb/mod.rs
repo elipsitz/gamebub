@@ -18,6 +18,7 @@ static STATE: Mutex<UsbState> = Mutex::new(UsbState {
 pub enum UsbMode {
     SerialJtag,
     ConsoleOnly,
+    ConsoleAndVendor,
     ConsoleAndMassStorage,
     ConsoleAndSerial,
 }
@@ -69,7 +70,11 @@ pub fn configure_usb(mode: UsbMode) -> Result<(), EspError> {
 
     // Set up the descriptors
     let mut descriptors = descriptors::Builder::new();
-    descriptors.add_vendor();
+    if mode == UsbMode::ConsoleAndVendor {
+        descriptors.add_vendor_bulk();
+    } else {
+        descriptors.add_vendor();
+    }
     descriptors.add_cdc();
     match mode {
         UsbMode::ConsoleAndMassStorage => descriptors.add_msc(),
@@ -80,6 +85,7 @@ pub fn configure_usb(mode: UsbMode) -> Result<(), EspError> {
     let mode_id = match mode {
         UsbMode::SerialJtag => 0,
         UsbMode::ConsoleOnly => 0,
+        UsbMode::ConsoleAndVendor => 2,
         UsbMode::ConsoleAndMassStorage => 2,
         UsbMode::ConsoleAndSerial => 3,
     };

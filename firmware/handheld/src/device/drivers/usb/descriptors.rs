@@ -94,6 +94,50 @@ impl Builder {
         itfnum
     }
 
+    pub fn add_vendor_bulk(&mut self) -> u8 {
+        // Assign endpoint and interface numbers
+        let itfnum = self.interfaces;
+        let stridx = 6;
+        let ep_out = self.endpoints + 1;
+        let ep_in = 0x80 | ep_out;
+        let ep_size: u16 = 64;
+
+        self.interfaces += 1;
+        self.endpoints += 1;
+
+        let descriptor = [
+            // Interface Descriptor
+            9, // bLength
+            sys::tusb_desc_type_t_TUSB_DESC_INTERFACE as u8,
+            itfnum, // bInterfaceNumber
+            0,      // bAlternateSetting
+            2,      // bNumEndpoints (1 OUT, 1 IN)
+            sys::tusb_class_code_t_TUSB_CLASS_VENDOR_SPECIFIC as u8,
+            0x1,    // bInterfaceSubClass
+            0x0,    // bInterfaceProtocol
+            stridx, // iInterface (string)
+            // Endpoint Out Descriptor
+            7, // bLength
+            sys::tusb_desc_type_t_TUSB_DESC_ENDPOINT as u8,
+            ep_out,                                     // bEndpointAddress
+            sys::tusb_xfer_type_t_TUSB_XFER_BULK as u8, // bmAttributes
+            (ep_size & 0xFF) as u8,                     // wMaxPacketSize (LSB)
+            ((ep_size >> 8) & 0xFF) as u8,              // wMaxPacketSize (MSB)
+            0,                                          // bInterval
+            // Endpoint In Descriptor
+            7, // bLength
+            sys::tusb_desc_type_t_TUSB_DESC_ENDPOINT as u8,
+            ep_in,                                      // bEndpointAddress
+            sys::tusb_xfer_type_t_TUSB_XFER_BULK as u8, // bmAttributes
+            (ep_size & 0xFF) as u8,                     // wMaxPacketSize (LSB)
+            ((ep_size >> 8) & 0xFF) as u8,              // wMaxPacketSize (MSB)
+            0,                                          // bInterval
+        ];
+
+        self.configuration.extend_from_slice(&descriptor);
+        itfnum
+    }
+
     pub fn add_msc(&mut self) -> u8 {
         // Assign endpoint and interface numbers
         let itfnum = self.interfaces;

@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::log::set_target_level("gpio", log::LevelFilter::Warn).unwrap();
     crash_handler::setup();
 
-    if let Err(e) = usb::configure_usb(usb::UsbMode::ConsoleOnly) {
+    if let Err(e) = usb::configure_usb(usb::UsbMode::ConsoleAndVendor) {
         log::error!("USB setup failed: {:?}", e);
     }
 

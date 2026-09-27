@@ -181,6 +181,35 @@ pub fn handle_control_complete(request: &Request) {
     }
 }
 
+/// Handle an incoming vendor bulk IN packet
+pub fn handle_bulk_in(data: &[u8]) {
+    if data.len() < 4 {
+        return;
+    }
+    let header = &data[0..4];
+    let payload = &data[4..];
+    let request = header[0];
+
+    match request {
+        REQUEST_GAMEPAD_CONNECT => (),
+        REQUEST_GAMEPAD_DATA => (),
+        REQUEST_GAMEPAD_DISCONNECT => (),
+        _ => return,
+    }
+
+    // TODO: consolidate packet handling
+    let request = Request {
+        direction: usb::control::Direction::Out,
+        request_type: usb::control::RequestType::Vendor,
+        recipient: usb::control::Recipient::Interface,
+        request,
+        value: 0,
+        index: 0,
+        length: 0,
+    };
+    let _ = handle_control_out(&request, payload);
+}
+
 fn defer_callback(cb: impl FnMut() + 'static + Send + Sync) {
     let timer_service = EspTaskTimerService::new().unwrap();
     let timer = timer_service.timer(cb).unwrap();

@@ -55,6 +55,10 @@ mod settings {
                 page: &PAGE_GENERAL,
             },
             Entry::Subpage {
+                name: "Dock",
+                page: &PAGE_DOCK,
+            },
+            Entry::Subpage {
                 name: "Core: GB / GBC",
                 page: &PAGE_CORE_GB,
             },
@@ -77,6 +81,14 @@ mod settings {
                 choices: &["Main Menu", "Run Cartridge"],
             },
         ],
+    };
+
+    pub static PAGE_DOCK: Page = Page {
+        name: "Dock",
+        entries: &[Entry::Checkbox {
+            name: "Swap A/B and X/Y",
+            key: &keys::DOCK_SWAP_ABXY,
+        }],
     };
 
     pub static PAGE_CORE_GB: Page = Page {

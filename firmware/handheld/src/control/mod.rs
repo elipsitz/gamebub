@@ -120,9 +120,8 @@ pub fn handle_control_out(request: &Request, buf: &[u8]) -> Result<(), ()> {
             // (A B X Y) (Up Down Right Left) (System Select Start Capture(?)) (L1 R1 L2 R2 L3 R3)
             let data = &buf[4..20];
             let data = InputState {
-                // XXX: A/B swapped!
-                btn_a: (data[0] & 0x2) != 0,
-                btn_b: (data[0] & 0x1) != 0,
+                btn_a: (data[0] & 0x1) != 0,
+                btn_b: (data[0] & 0x2) != 0,
                 btn_x: (data[0] & 0x4) != 0,
                 btn_y: (data[0] & 0x8) != 0,
                 btn_up: (data[0] & 0x10) != 0,

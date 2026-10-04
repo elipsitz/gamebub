@@ -166,8 +166,8 @@ where
         // Program common-mode voltage (set to 1.5 V);
         self.write_reg(1, 0x1F, 0x0C)?;
 
-        // Program headphone depop settings (power on = 800ms, step = 4ms);
-        self.write_reg(1, 0x21, 0x4E)?;
+        // Program headphone depop settings (power on = 304ms, step = 1ms);
+        self.write_reg(1, 0x21, 0x3A)?;
 
         // Route DAC output to output amplifier mixer
         // LDAC to HPL, RDAC to HPR

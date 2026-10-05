@@ -28,6 +28,13 @@ impl Notification {
             duration: Duration::from_millis(3500),
         }
     }
+
+    pub fn new_alert(text: String) -> Notification {
+        Notification {
+            text,
+            duration: Duration::from_millis(5000),
+        }
+    }
 }
 
 impl UiState {

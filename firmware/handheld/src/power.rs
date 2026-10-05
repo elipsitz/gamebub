@@ -37,10 +37,19 @@ impl PowerManager {
         POWER_MANAGER.lock().unwrap()
     }
 
-    fn update(&mut self, device: &mut Device) {
+    fn init(&mut self, device: &mut Device) {
+        let battery_level = device.fuel_gauge.get_battery_level().ok();
+        ui::send(ui::Message::BatteryStatus {
+            level: battery_level.unwrap_or(0.),
+        });
+    }
+
+    fn update(&mut self) {
+        let mut device = Device::lock();
         let battery_level = device.fuel_gauge.get_battery_level().ok();
         let vbus = device.get_vbus_pgood();
         let battery_voltage = device.fuel_gauge.get_battery_voltage().ok();
+        drop(device);
 
         if let Some(battery_level) = battery_level {
             let battery_level = battery_level.round() as i32;
@@ -64,13 +73,15 @@ impl PowerManager {
         if let Some(battery_voltage) = battery_voltage {
             if battery_voltage <= CUTOFF_VOLTAGE && !vbus {
                 log::warn!("Battery critically low, powering off");
-                led::LedController::set_behavior(LedBehavior::BATTERY_CRITICAL);
-                crate::core::CoreManager::lock().prepare_for_power_off();
                 ui::send(ui::Message::Notification(ui::Notification::new_alert(
                     "Critically low battery!\nShutting down...".into(),
                 )));
+
                 std::thread::sleep(Duration::from_secs(3));
-                device.power_off();
+
+                crate::core::CoreManager::lock().prepare_for_power_off();
+                led::LedController::set_behavior(LedBehavior::BATTERY_CRITICAL);
+                Device::lock().power_off();
             }
         }
 
@@ -86,11 +97,11 @@ impl PowerManager {
         let timer_service = EspTaskTimerService::new().unwrap();
         let timer = timer_service
             .timer(move || {
-                PowerManager::lock().update(&mut Device::lock());
+                PowerManager::lock().update();
             })
             .unwrap();
         timer.every(MONITOR_INTERVAL).unwrap();
         manager.monitor_timer = Some(timer);
-        manager.update(device);
+        manager.init(device);
     }
 }

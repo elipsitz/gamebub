@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, ErrorKind, Write},
+    io::{BufReader, BufWriter, ErrorKind, Read, Write},
     ops::DerefMut as _,
     path::{Path, PathBuf},
     sync::{LazyLock, Mutex, MutexGuard},
@@ -37,6 +37,8 @@ const FILE_LIST_MAX: usize = 100;
 const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_millis(250);
 const NOTIFY_TIMEOUT: Duration = Duration::from_millis(10);
 const SETUP_TIMEOUT: Duration = Duration::from_millis(100);
+/// Only perform background I/O when reading files at least this large.
+const BG_IO_THRESHOLD: usize = 512 * 1024;
 
 #[allow(unused)]
 mod command {
@@ -595,8 +597,7 @@ impl CoreManager {
             let mut transfer_duration = Duration::ZERO;
             let mut handler_duration = Duration::ZERO;
             let mut transferred = 0;
-            // TODO: maybe only bother with background I/O for a large file (> 256KB?)
-            let result = crate::util::background_io::iter_chunks(file, &mut scratch, |chunk| {
+            let mut on_chunk_read = |chunk: &[u8]| {
                 let transfer_start = Instant::now();
                 let max_clock = Some(Hertz(info.max_transfer_speed * 1000 * 2));
                 let command = SpiCommand::new(info.transfer_word_size);
@@ -621,7 +622,26 @@ impl CoreManager {
                     ui::send(ui::Message::CoreLoadProgress(progress));
                     last_progress_update = Instant::now();
                 }
-            });
+            };
+
+            // Only do background I/O for large files.
+            let result = if file_size >= BG_IO_THRESHOLD as u64 {
+                crate::util::background_io::iter_chunks(file, &mut scratch, on_chunk_read)
+            } else {
+                let mut duration = Duration::ZERO;
+                loop {
+                    let read_start = Instant::now();
+                    let result = file.read(&mut scratch);
+                    duration += read_start.elapsed();
+
+                    match result {
+                        Ok(0) => break Ok(duration),
+                        Ok(n) => on_chunk_read(&scratch[..n]),
+                        Err(err) => break Err(err),
+                    }
+                }
+            };
+
             let read_duration = result
                 .map_err(|_| FailedLoadFile(info.label.to_string(), "I/O error".to_string()))?;
 

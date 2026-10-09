@@ -815,7 +815,8 @@ impl CoreManager {
     /// Called when a file has been selected for the core.
     /// This could be a file or a directory.
     pub fn handle_file_selected(&mut self, path: PathBuf) {
-        if path.is_file() {
+        let is_none = path.as_os_str().is_empty();
+        if is_none || path.is_file() {
             log::info!("File selected: {}", path.display());
             let Stage::LoadSelectFile(file_index) = self.stage else {
                 panic!()
@@ -825,9 +826,14 @@ impl CoreManager {
             let settings = self.core_settings.as_mut().unwrap();
             let file_id = self.core_info.as_ref().unwrap().files[file_index].id;
             settings.file_paths.retain(|x| x.0 != file_id);
-            settings.file_paths.push((file_id, path.clone()));
 
-            self.selected_files[file_index] = Some(path);
+            if is_none {
+                self.selected_files[file_index] = None;
+            } else {
+                settings.file_paths.push((file_id, path.clone()));
+                self.selected_files[file_index] = Some(path);
+            }
+
             self.next_file_select();
         } else if path.is_dir() {
             self.send_core_file_list(&path);
@@ -907,7 +913,15 @@ impl CoreManager {
             let c2 = (f2.1.is_file(), f2.0.as_str());
             c1.cmp(&c2)
         });
-        let files = files.into_iter().map(|f| (f.0, f.1.is_dir())).collect();
+
+        // If this file is optional, make a "nope" entry.
+        let no_file = if self.core_info.as_ref().unwrap().files[file_index].optional {
+            Some((String::new(), false))
+        } else {
+            None
+        };
+        let files =
+            std::iter::chain(no_file, files.into_iter().map(|f| (f.0, f.1.is_dir()))).collect();
         Ok(files)
     }
 

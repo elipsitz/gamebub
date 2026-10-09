@@ -35,6 +35,14 @@ impl Model for FileListModel {
             return None;
         }
         let (name, is_dir) = &self.data[row];
+
+        if name.is_empty() {
+            return Some(crate::ui::slint::FileListEntry {
+                name: SharedString::from("[No Selection]"),
+                icon: FileIcon::Nope,
+            });
+        }
+
         Some(crate::ui::slint::FileListEntry {
             name: SharedString::from(name),
             icon: if *is_dir {
@@ -73,8 +81,13 @@ impl UiState {
             let backend = root.global::<Backend>();
             let list = backend.get_core_file_select_list();
             if let Some(data) = list.row_data(index as usize) {
-                let path = state.core_file_select_directory.join(data.name.as_str());
-                state.cores_handle_file_select_selected(path, data.name.as_str())
+                if data.icon == FileIcon::Nope {
+                    // No file
+                    state.cores_handle_file_select_selected(PathBuf::new(), "");
+                } else {
+                    let path = state.core_file_select_directory.join(data.name.as_str());
+                    state.cores_handle_file_select_selected(path, data.name.as_str());
+                }
             }
         });
 
@@ -211,6 +224,8 @@ impl UiState {
             worker::send(worker::Message::CoreFileSelected(
                 self.core_file_select_directory.clone(),
             ));
+        } else if filename.is_empty() {
+            worker::send(worker::Message::CoreFileSelected(PathBuf::new()));
         } else if path.is_dir() {
             log::info!("Entering subdirectory {}", filename);
             self.core_file_select_filename.clear();

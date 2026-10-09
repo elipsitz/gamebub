@@ -258,7 +258,8 @@ impl Gba {
                     extensions: ["gba".try_into().unwrap()].into_iter().collect(),
                     filename: None,
 
-                    optional: true,
+                    // Note: actually optional, with the Run Cartridge option.
+                    optional: false,
                     read_only: true,
                     user_selected: true,
                     dependent_on_0: false,

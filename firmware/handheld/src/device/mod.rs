@@ -525,7 +525,7 @@ impl Device<'_> {
         fpga_program_b.set_high()?; // Initializing pin sets this to low -- release it to high-z immediately.
         let fpga_init_b = PinDriver::input(pin_fpga_init_b)?;
 
-        let spi_rates = [40.MHz(), 20.MHz(), 16.MHz(), 10.MHz()];
+        let spi_rates = [40.MHz(), 20.MHz(), 10.MHz(), 4.MHz(), 2.MHz()];
         let fpga_data_spis = spi_rates
             .iter()
             .map(|&rate| {

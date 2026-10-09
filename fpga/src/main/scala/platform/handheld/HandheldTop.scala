@@ -427,6 +427,9 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     /** True if the device is docked */
     val docked = Bool()
   }))
+  val controlVideoFilter = RegInit(0.U.asTypeOf(new Bundle {
+    val darken = Bool()
+  }))
 
   val controlCommandHost = RegInit(0.U.asTypeOf(Output(new HostV0.CommandChannel)))
   val controlCommandCore = RegInit(0.U.asTypeOf(Output(new HostV0.CommandChannel)))
@@ -464,6 +467,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
       0x100C -> RegisterMap.Entry.w(controlDock),
       0x1010 -> RegisterMap.Entry.w(controlCoreFocus),
       0x1014 -> RegisterMap.Entry.w(controlVibrate),
+      0x1018 -> RegisterMap.Entry.w(controlVideoFilter),
 
       0x1100 -> RegisterMap.Entry.rw(controlCommandHost),
       0x1104 -> RegisterMap.Entry.rw(controlCommandCore),
@@ -612,8 +616,16 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     val framebufferInBounds = Wire(Bool())
     val overlayInBounds = Wire(Bool())
     val videoOutput = ColorRGB(8, 8, 8).make(r = 0, g = 0, b = 0)
+    val darkenVideo = XpmCdcSingle(clock, controlVideoFilter.darken)
     when (framebufferInBounds) {
-      videoOutput := framebufferColor.convertTo(videoOutput)
+      val color = framebufferColor.convertTo(videoOutput)
+      when (darkenVideo) {
+        videoOutput.r := color.r >> 1
+        videoOutput.g := color.g >> 1
+        videoOutput.b := color.b >> 1
+      } .otherwise {
+        videoOutput := color
+      }
     }
     when (overlayRead.a.asBool && overlayInBounds) {
       videoOutput := overlayRead.convertTo(videoOutput)

@@ -148,6 +148,7 @@ def build(
         }.get(file_extension)
         if not file_type:
             print("WARNING: Skipping unknown file type:", file)
+            continue
         files.append(dict(name=file, file_type=file_type))
 
     # Make all file paths relative to build root.

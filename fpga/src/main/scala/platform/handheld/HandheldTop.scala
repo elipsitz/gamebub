@@ -434,6 +434,12 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   val controlCommandHost = RegInit(0.U.asTypeOf(Output(new HostV0.CommandChannel)))
   val controlCommandCore = RegInit(0.U.asTypeOf(Output(new HostV0.CommandChannel)))
 
+  val controlButtonRemap = RegInit(VecInit(
+    Seq.tabulate((new InputV0.Buttons).getWidth)(i =>
+      i.U(log2Ceil(new(InputV0.Buttons).getWidth).W)
+    )
+  ))
+
   /// Synchronized physical button state (without MCU force override)
   val buttonState = Wire(new InputV0.Buttons)
 
@@ -472,9 +478,25 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
       0x1100 -> RegisterMap.Entry.rw(controlCommandHost),
       0x1104 -> RegisterMap.Entry.rw(controlCommandCore),
 
+      // 0x1200 to 0x12FF: button remap
+
       // Framework status
       0x2000 -> RegisterMap.Entry.r(buttonState),
       0x2004 -> RegisterMap.Entry.r(RegNext(RegNext(io.cartridge.switch))),
+    )
+    ++ Seq.tabulate(controlButtonRemap.length / 4)(i =>
+      (0x1200 + i * 4) -> RegisterMap.Entry(
+        32,
+        read = RegisterMap.ReadFn((_: Bool) => 0.U),
+        write = RegisterMap.WriteFn((write: Bool, data: UInt) =>
+          when (write) {
+            controlButtonRemap(i * 4 + 0) := data(7, 0)
+            controlButtonRemap(i * 4 + 1) := data(15, 8)
+            controlButtonRemap(i * 4 + 2) := data(23, 16)
+            controlButtonRemap(i * 4 + 3) := data(31, 24)
+          }
+        ),
+      ),
     )
   )
 
@@ -527,10 +549,22 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
       controlInterruptPending.buttonEdge := true.B
     }
   }
+
+  // Apply remap registers
+  val remappedButtons = {
+    val n = controlButtonRemap.length
+    val raw = VecInit(buttonState.asUInt.asBools :+ false.B)
+    val remappedVec = VecInit(Seq.tabulate(n) { i =>
+      val source = controlButtonRemap(i)
+      raw(Mux(source < n.U, source, n.U))
+    })
+    remappedVec.asUInt
+  }
+
   // Only pass input through when the core is focused
   val buttonFilter = Module(new ButtonFilter(new InputV0.Buttons))
   buttonFilter.io.enable := controlCoreFocus
-  buttonFilter.io.input := (buttonState.asUInt | controlButtonForce.asUInt).asTypeOf(new InputV0.Buttons)
+  buttonFilter.io.input := (remappedButtons | controlButtonForce.asUInt).asTypeOf(new InputV0.Buttons)
   coreInput := buttonFilter.io.output
 
   val vibrateEnabled = controlCoreFocus && controlVibrate.enable && !controlDock.docked

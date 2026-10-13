@@ -65,6 +65,11 @@ class FlashBackup extends Module {
         // 128 KiB (Sanyo)
         regReadData := Mux(io.ramAddress(0) === 0.U, 0x62.U, 0x13.U)
       }
+    } .elsewhen (regEraseBusy) {
+      // GBA software looks for 0xFF to know if the erase is complete.
+      // But perhaps this should only trigger when reading a sector that is being
+      // erased, and other read should be unaffected.
+      regReadData := 0.U
     } .otherwise {
       regReadBusy := true.B
       regAddress := Cat(regBank, io.ramAddress)
@@ -89,7 +94,6 @@ class FlashBackup extends Module {
     }
     when (io.ramReqEnd) {
       logger.warn("Flash erase stall")
-      io.stall := true.B
     }
   } .elsewhen (regReadBusy) {
     io.backup.enable := true.B

@@ -3,6 +3,7 @@ package gba
 import chisel3._
 import chisel3.util._
 import lib.log.Logger
+import chisel3.{BitsIntf => ack}
 
 class Interrupt extends Module {
   val io = IO(new Bundle {
@@ -29,8 +30,9 @@ class Interrupt extends Module {
   val reg410 = RegInit(0.U(32.W))
 
   val irqActive = (regRequested.asUInt & regEnabled.asUInt) =/= 0.U
+  val irqAck = WireDefault(0.U((new Interrupt.Flags).getWidth.W))
   when (io.enable) {
-    regRequested := (regRequested.asUInt | io.peripheralIrq.asUInt).asTypeOf(new Interrupt.Flags)
+    regRequested := ((regRequested.asUInt & (~irqAck)) | io.peripheralIrq.asUInt).asTypeOf(new Interrupt.Flags)
 
     when (irqActive && regCpuHalt) {
       // Exiting HALT happens when IE & IF, regardless of IME (or CPU irq)
@@ -56,8 +58,7 @@ class Interrupt extends Module {
           // Write to IE
           regEnabled := MMIO.mask(regEnabled, data(15, 0), mask(1, 0))
           // Write to IF
-          val ack = MMIO.mask(0.U(16.W), data(31, 16), mask(3, 2))
-          regRequested := (regRequested.asUInt & (~ack).asUInt).asTypeOf(new Interrupt.Flags)
+          irqAck := MMIO.mask(0.U(16.W), data(31, 16), mask(3, 2))
         }
       })
     ),

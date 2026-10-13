@@ -345,9 +345,10 @@ class Link extends Module {
   }
 
   private def handleMulti(): Unit = {
-    val isMaster = !io.port.in.si
     val rxDataRegs = Seq(regDataB0, regDataB1, regDataB2, regDataB3)
 
+    // Whether we are acting as a master (always false in Idle)
+    val regMaster = RegInit(false.B)
     val regMyId = RegInit(0.U(2.W))
     val regError = RegInit(false.B)
     val regState = RegInit(Link.MultiState.Idle)
@@ -363,9 +364,9 @@ class Link extends Module {
     val siocntLoRead = Wire(new Link.MultiSiocntLo)
     siocntReadValueLo := siocntLoRead.asUInt
     siocntLoRead.baud := siocntLo.baud
-    siocntLoRead.si := !isMaster
-    siocntLoRead.sd := io.port.in.sd
-    siocntLoRead.id := Mux(isMaster, 0.U, regMyId)
+    siocntLoRead.si := RegEnable(io.port.in.si, io.enable)
+    siocntLoRead.sd := RegEnable(io.port.in.sd, io.enable)
+    siocntLoRead.id := regMyId
     siocntLoRead.error := regError
     siocntLoRead.busy := regBusy
     val interruptEnable = regSiocnt(14)
@@ -375,7 +376,7 @@ class Link extends Module {
     io.port.dir.so := true.B  // Always Output
     io.port.dir.si := false.B // Always Input
     io.port.dir.sd := false.B // Default: input
-    io.port.dir.sc := isMaster && (regState =/= Link.MultiState.Idle)
+    io.port.dir.sc := regMaster
     io.port.out.so := true.B  // Default: high
     io.port.out.si := DontCare
     io.port.out.sd := DontCare
@@ -390,10 +391,12 @@ class Link extends Module {
 
     switch (regState) {
       is (Link.MultiState.Idle) {
-        val startMaster = isMaster && siocntStartSet
-        val startSlave = !isMaster && !io.port.in.sc
+        regMaster := false.B
+        val isInLow = !io.port.in.si  // Determines whether we will be master
+        val startMaster = isInLow && siocntStartSet
+        val startSlave = !isInLow && !io.port.in.sc
         when (io.enable && (startMaster || startSlave)) {
-          logger.info(cf"Multi begin: master=${isMaster}")
+          logger.info(cf"Multi begin: master=${isInLow}")
 
           regDidTransmit := false.B
           rxDataRegs.foreach(r => r := 0xFFFF.U)
@@ -404,7 +407,9 @@ class Link extends Module {
           regPulseCounter := 17.U // (1 start, 16 data, 1 stop) minus 1
           regBusy := true.B
 
-          when (isMaster) {
+          when (isInLow) {
+            regMyId := 0.U
+            regMaster := true.B
             regState := Link.MultiState.MasterTransmit
           } .otherwise {
             regState := Link.MultiState.SlaveReceive

@@ -476,6 +476,11 @@ class Link extends Module {
               }
             })
 
+            // Check for invalid stop bit
+            when (!regRxBuffer(17)) {
+              regError := true.B
+            }
+
             when (regPeerId === 3.U) {
               logger.debug("Master: slave 3 ended")
               io.irq := interruptEnable
@@ -507,6 +512,11 @@ class Link extends Module {
               }
             })
 
+            // Check for invalid stop bit
+            when (!regRxBuffer(17)) {
+              regError := true.B
+            }
+
             regState := Link.MultiState.SlaveWait
             regPeerId := regPeerId + 1.U
           }
@@ -532,13 +542,6 @@ class Link extends Module {
           regState := Link.MultiState.SlaveTransmit
           regDidTransmit := true.B
         }
-        when (io.enable && io.port.in.sc) {
-          logger.debug("Slave wait: SC went back high")
-          // End
-          io.irq := interruptEnable
-          regBusy := false.B
-          regState := Link.MultiState.Idle
-        }
       }
       is (Link.MultiState.SlaveTransmit) {
         io.port.dir.sd := true.B
@@ -559,6 +562,19 @@ class Link extends Module {
             })
             regState := Link.MultiState.SlaveWait
           }
+        }
+      }
+    }
+
+    when (regState =/= Link.MultiState.Idle && !regMaster) {
+      when (io.enable && io.port.in.sc) {
+        logger.debug("Slave: SC went back high")
+        // End
+        io.irq := interruptEnable
+        regBusy := false.B
+        regState := Link.MultiState.Idle
+        when (!regDidTransmit) {
+          regError := true.B
         }
       }
     }

@@ -276,7 +276,7 @@ class Link extends Module {
         val nextClockCounter = regClockCounter +& 1.U
         regClockCounter := nextClockCounter
         // Tick every clock *edge* (rising or falling)
-        val tick = Mux(fastClock, nextClockCounter(2), nextClockCounter(5))
+        val tick = Mux(fastClock, nextClockCounter(2) =/= regClockCounter(2), nextClockCounter(5))
         when (tick) {
           logger.debug("Normal master clock tick")
           regClockOut := !regClockOut

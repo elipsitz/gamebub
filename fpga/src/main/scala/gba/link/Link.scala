@@ -527,6 +527,7 @@ class Link extends Module {
           // Go to Transmit
           uartTimer.reset := true.B
           regMyId := regPeerId
+          regPeerId := regPeerId + 1.U
           regPulseCounter := 17.U // (1 start, 16 data, 1 stop) minus 1
           regState := Link.MultiState.SlaveTransmit
           regDidTransmit := true.B

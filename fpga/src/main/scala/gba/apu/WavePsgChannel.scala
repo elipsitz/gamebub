@@ -45,11 +45,6 @@ class WavePsgChannel extends Module {
   val currentSample = RegInit(0.U(4.W))
   io.waveRamAddress := waveIndex(5, 3)
 
-  when (io.trigger) {
-    waveCounter := waveCounterMax
-    waveIndex := Cat(io.waveRamBank, 0.U(5.W))
-  }
-
   when (io.pulse4Mhz) {
     when (waveCounter === 0.U) {
       val nextIndex = waveIndex + 1.U
@@ -69,6 +64,11 @@ class WavePsgChannel extends Module {
     } .otherwise {
       waveCounter := waveCounter - 1.U
     }
+  }
+
+  when (io.trigger) {
+    waveCounter := waveCounterMax
+    waveIndex := Cat(io.waveRamBank, 0.U(5.W))
   }
 
   io.out := Mux(

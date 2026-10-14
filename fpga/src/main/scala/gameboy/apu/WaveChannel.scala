@@ -32,9 +32,6 @@ class WaveChannel extends Module {
   val currentSample = RegInit(0.U(4.W))
   io.waveRamAddress := waveIndex(4, 1)
 
-  when (io.trigger) {
-    waveCounter := waveCounterMax
-  }
 
   when (io.pulse4Mhz) {
     when (waveCounter === 0.U) {
@@ -47,6 +44,10 @@ class WaveChannel extends Module {
     } .otherwise {
       waveCounter := waveCounter - 1.U
     }
+  }
+
+  when (io.trigger) {
+    waveCounter := waveCounterMax
   }
 
   io.out := VecInit(0.U, currentSample, currentSample >> 1, currentSample >> 2)(io.volume)

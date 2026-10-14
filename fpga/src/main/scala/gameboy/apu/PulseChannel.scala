@@ -37,10 +37,6 @@ class PulseChannel extends Module {
   // Counter that advances the waveIndex.
   val waveCounter = RegInit(0.U(13.W))
 
-  when (io.trigger) {
-    waveCounter := io.wavelength << 2
-  }
-
   when (io.pulse4Mhz) {
     val nextWaveCounter = waveCounter + 1.U
     waveCounter := nextWaveCounter
@@ -49,6 +45,10 @@ class PulseChannel extends Module {
       waveCounter := io.wavelength << 2
       waveIndex := waveIndex + 1.U
     }
+  }
+
+  when (io.trigger) {
+    waveCounter := io.wavelength << 2
   }
 
   io.dacEnabled := io.volumeConfig.initialVolume =/= 0.U || io.volumeConfig.modeIncrease

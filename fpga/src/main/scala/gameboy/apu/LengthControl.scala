@@ -24,14 +24,15 @@ class LengthControl(bits: Int) extends Module {
     val channelDisable = Output(Bool())
   })
 
-  val timer = RegInit(0.U(bits.W))
+  val maxLength = (1 << bits).U
+  val timer = RegInit(0.U((bits + 1).W))
   io.channelDisable := false.B
 
   when (io.trigger) {
-    // On trigger, if the timer is 0, it plays for the maximum length.
-    // This is probably because channelEnable is only turned off on a tick where the timer goes down to 0.
-    // So if it's at 0, it'll take 64 ticks before it gets set to 0.
-  } .elsewhen (io.tick && io.config.enabled) {
+    when (timer === 0.U) {
+      timer := maxLength
+    }
+  } .elsewhen (io.tick && io.config.enabled && timer =/= 0.U) {
     val newTimer = timer - 1.U
     timer := newTimer
     when (newTimer === 0.U) {
@@ -41,7 +42,6 @@ class LengthControl(bits: Int) extends Module {
   }
 
   when (io.config.lengthLoad) {
-    // Timer = 64 - load value
-    timer := (~io.config.length) + 1.U
+    timer := maxLength - io.config.length
   }
 }

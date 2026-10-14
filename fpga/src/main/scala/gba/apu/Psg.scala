@@ -36,7 +36,7 @@ class Psg extends Module {
   val regLengthEnable = RegInit(VecInit.fill(4)(false.B))
   val channelTrigger = WireDefault(VecInit.fill(4)(false.B))
   val channelEnabled = RegInit(VecInit.fill(4)(false.B))
-  io.channelEnabled := channelTrigger.asUInt
+  io.channelEnabled := channelEnabled.asUInt
 
   // Frame sequencer
   val frameCounter = RegInit(0.U(15.W))

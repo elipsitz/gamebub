@@ -22,6 +22,7 @@ class Link extends Module {
   /// Whether bit 7 of SIOCNT has been written this cycle (only for Normal and Multi mode).
   val siocntStartSet = WireDefault(false.B)
   val siocntStartUnset = WireDefault(false.B)
+  val regSiocntStart = RegEnable(siocntStartSet, io.enable)
   /// SIOCNT read value (mode-dependent), low 8-bits. Upper 8 bits are all R/W and shared
   val siocntReadValueLo = WireDefault(0.U(8.W))
 
@@ -252,7 +253,7 @@ class Link extends Module {
     io.port.out.sd := false.B // Always SD = low
     io.port.out.sc := Mux(regBusy, regClockOut, true.B)
 
-    when (siocntStartSet && !regBusy) {
+    when (regSiocntStart && !regBusy) {
       logger.info(cf"Normal start, master=${isMaster}")
       regBusy := true.B
       regMasterHold := false.B
@@ -393,7 +394,7 @@ class Link extends Module {
       is (Link.MultiState.Idle) {
         regMaster := false.B
         val isInLow = !io.port.in.si  // Determines whether we will be master
-        val startMaster = isInLow && siocntStartSet
+        val startMaster = isInLow && regSiocntStart
         val startSlave = !isInLow && !io.port.in.sc
         when (io.enable && (startMaster || startSlave)) {
           logger.info(cf"Multi begin: master=${isInLow}")
@@ -414,9 +415,6 @@ class Link extends Module {
           } .otherwise {
             regState := Link.MultiState.SlaveReceive
           }
-        }
-        when (siocntStartSet) {
-          regBusy := true.B
         }
       }
       is (Link.MultiState.MasterTransmit) {

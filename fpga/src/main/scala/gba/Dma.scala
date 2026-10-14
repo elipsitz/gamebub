@@ -97,7 +97,7 @@ class Dma extends Module {
     bus.ADDR := DontCare
     bus.MREQ := busActive
     bus.SEQ := regAccessedCart
-    bus.WDATA := DontCare
+    bus.WDATA := dataLatch
 
     // Latching config
     val prevEnabled = RegEnable(control.enable, io.enable)
@@ -166,7 +166,6 @@ class Dma extends Module {
           }
         }
         // Complete Store (if not initial)
-        bus.WDATA := dataLatch
         regSourceAddressHalfword := regSource(1)
 
         // Check if the DMA is complete.

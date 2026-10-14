@@ -76,6 +76,11 @@ class WavePsgChannel extends Module {
     (currentSample >> 1).asUInt +& (currentSample >> 2).asUInt,
     VecInit(0.U, currentSample, currentSample >> 1, currentSample >> 2)(io.volume)
   )
+  io.maxOut := Mux(
+    io.volumeForce,
+    10.U,
+    VecInit(0.U, 15.U, 7.U, 3.U)(io.volume)
+  )
   io.dacEnabled := io.dacEnable
   io.channelDisable := lengthUnit.io.channelDisable
 }

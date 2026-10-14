@@ -125,32 +125,61 @@ class Apu extends Module {
   when (regMasterEnable) {
     val directA = Mux(regMixControl.directAVolume.asBool, channelDirectA.io.sample << 2, channelDirectA.io.sample << 1).asSInt
     val directB = Mux(regMixControl.directBVolume.asBool, channelDirectB.io.sample << 2, channelDirectB.io.sample << 1).asSInt
-    val psgLeft = VecInit(psg.io.outputLeft >> 2, psg.io.outputLeft >> 1, psg.io.outputLeft, 0.S)(regMixControl.psgVolume).asSInt
-    val psgRight = VecInit(psg.io.outputRight >> 2, psg.io.outputRight >> 1, psg.io.outputRight, 0.S)(regMixControl.psgVolume).asSInt
+    val psgLeft = VecInit(
+      psg.io.outputLeft >> 2, /* 25% */
+      psg.io.outputLeft >> 1, /* 50% */
+      psg.io.outputLeft, /* 100% */
+      psg.io.outputLeft >> 2, /* prohibited (25%) */
+    )(regMixControl.psgVolume).asSInt
+    val psgRight = VecInit(
+      psg.io.outputRight >> 2, /* 25% */
+      psg.io.outputRight >> 1, /* 50% */
+      psg.io.outputRight, /* 100% */
+      psg.io.outputRight >> 2, /* prohibited (25%) */
+    )(regMixControl.psgVolume).asSInt
 
-    val left = ((regSoundbias.bias << 1).asUInt.zext - 0x200.S(12.W)) +
+    // Output is:
+    //   (10-bit signed PSG
+    //    + 10-bit signed DMA A
+    //    + 10-bit signed DMA B)
+    //   + bias level
+    //   all clamped to 0...0x3FF
+    //   minus -0x200 (to make it signed)
+    //   
+    //   although https://jsgroth.dev/blog/posts/gba-audio/ claims:
+    //     DMA channels are clamped to [-0x200, 0x1FF] after being summed
+
+    val bias = (regSoundbias.bias << 1).asUInt.zext
+
+    val left = psgLeft +
       Mux(regDirectControl.enableLeftA, directA, 0.S(12.W)) +
       Mux(regDirectControl.enableLeftB, directB, 0.S(12.W)) +
-      psgLeft
-    val right = ((regSoundbias.bias << 1).asUInt.zext - 0x200.S(12.W)) +
+      bias
+    val right = psgRight +
       Mux(regDirectControl.enableRightA, directA, 0.S(12.W)) +
       Mux(regDirectControl.enableRightB, directB, 0.S(12.W)) +
-      psgRight
+      bias
 
-    when (left < (-0x200).S) {
-      io.output.left := (-0x200).S(10.W)
-    } .elsewhen (left >= (0x200).S) {
-      io.output.left := 0x1FF.S(10.W)
+    val outLeft = Wire(SInt(10.W))
+    val outRight = Wire(SInt(10.W))
+    when (left < 0.S) {
+      outLeft := (-0x200).S(12.W)
+    } .elsewhen (left > (0x3FF).S) {
+      outLeft := 0x1FF.S(10.W)
     } .otherwise {
-      io.output.left := left
+      outLeft := left - 0x200.S(12.W)
     }
-    when (right < (-0x200).S) {
-      io.output.right := (-0x200).S(10.W)
-    } .elsewhen (right >= (0x200).S) {
-      io.output.right := 0x1FF.S(10.W)
+    when (right < 0.S) {
+      outRight := (-0x200).S(12.W)
+    } .elsewhen (right > (0x3FF).S) {
+      outRight := 0x1FF.S(10.W)
     } .otherwise {
-      io.output.right := right
+      outRight := right - 0x200.S(12.W)
     }
+
+    // TODO: Truncate lower bits depending on SOUNDBIAS sample resolution
+    io.output.left := outLeft
+    io.output.right := outRight
   } .otherwise {
     io.output.left := 0.S
     io.output.right := 0.S

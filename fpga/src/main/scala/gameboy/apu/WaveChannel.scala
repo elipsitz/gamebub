@@ -50,6 +50,7 @@ class WaveChannel extends Module {
   }
 
   io.out := VecInit(0.U, currentSample, currentSample >> 1, currentSample >> 2)(io.volume)
+  io.maxOut := VecInit(0.U, 15.U, 7.U, 3.U)(io.volume)
   io.dacEnabled := io.dacEnable
   io.channelDisable := lengthUnit.io.channelDisable
 }

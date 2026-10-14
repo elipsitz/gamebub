@@ -13,6 +13,8 @@ class ChannelIO extends Bundle {
 
   /** Output value of the channel */
   val out = Output(UInt(4.W))
+  /** Volume of the channel (maximum `out`) */
+  val maxOut = Output(UInt(4.W))
   /** Pulsed when the channel gets disabled (due to length expiring or frequency sweep). **/
   val channelDisable = Output(Bool())
   /** Whether the DAC is enabled **/

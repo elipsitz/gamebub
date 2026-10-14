@@ -62,6 +62,7 @@ class PulseChannel extends Module {
     )(io.duty),
     volumeUnit.io.out, 0.U
   )
+  io.maxOut := volumeUnit.io.out
 }
 
 class FrequencySweepConfig extends Bundle {
@@ -158,4 +159,5 @@ class PulseChannelWithSweep extends Module {
   io.dacEnabled := pulseChannel.io.dacEnabled
   io.channelDisable := pulseChannel.io.channelDisable || freqSweepOverflow
   io.out := pulseChannel.io.out
+  io.maxOut := pulseChannel.io.maxOut
 }

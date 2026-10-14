@@ -276,9 +276,16 @@ class Psg extends Module {
   )
 
   // Mixing
-  val dacOutput = VecInit((0 to 3).map(i =>
-    Mux(channelEnabled(i), 0xF.S(5.W) - (channels(i).out << 1).asSInt, 0.S)
-  ))
+
+  // Convert 4-bit unsigned raw channel output to 5-bit signed
+  val dacOutput = VecInit(Seq.tabulate(4)(i => {
+    Mux(
+      channelEnabled(i) && channels(i).dacEnabled,
+      (channels(i).out << 1).zext - channels(i).maxOut.zext,
+      0.S,
+    )
+  }))
+
   val mixerLeft = VecInit((0 to 3).map(i => Mux(io.panning.left(i), dacOutput(i), 0.S))).reduceTree(_ +& _)
   val mixerRight = VecInit((0 to 3).map(i => Mux(io.panning.right(i), dacOutput(i), 0.S))).reduceTree(_ +& _)
   io.outputLeft := mixerLeft * (io.volume.volumeLeft +& 1.U).zext

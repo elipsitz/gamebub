@@ -20,7 +20,6 @@ export component ToolsScreen inherits ScreenBase {
                 if selected-tool == -1 {
                     Global.set-screen(ScreenId.MainMenu);
                 }
-                selected-tool = -1;
                 accept
             } else {
                 reject
@@ -124,6 +123,14 @@ export component ToolsScreen inherits ScreenBase {
             private property <BatteryInfo> info;
             init => {
                 self.focus();
+            }
+            key-released(event) => {
+                if event.text == "b" {
+                    root.selected-tool = -1;
+                    accept
+                } else {
+                    reject
+                }
             }
 
             Text {

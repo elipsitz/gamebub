@@ -26,10 +26,17 @@ class FrameSequencer extends Module {
   val divPulse = RegEnable(io.divApu, false.B, io.clockEnable) && !io.divApu
   val divCounter = RegInit(0.U(3.W))
   when (divPulse && io.clockEnable) { divCounter := divCounter + 1.U }
-  val divPrevCounter = RegEnable(divCounter, 0.U, io.clockEnable)
 
-  // XXX: Maybe there's a way to just use the carry out of the counter bits?
-  io.ticks.length := divCounter(0) && !divPrevCounter(0) && io.clockEnable
-  io.ticks.frequency := divCounter(1) && !divPrevCounter(1) && io.clockEnable
-  io.ticks.volume := divCounter(2) && !divPrevCounter(2) && io.clockEnable
+  // Step |
+  //    0 | Length
+  //    1 | 
+  //    2 | Length  Sweep
+  //    3 | 
+  //    4 | Length
+  //    5 | 
+  //    6 | Length  Sweep
+  //    7 |                Envelope
+  io.ticks.length := divPulse && io.clockEnable && (divCounter(0) === 0.U)
+  io.ticks.frequency := divPulse && io.clockEnable && (divCounter(1, 0) === 2.U)
+  io.ticks.volume := divPulse && io.clockEnable && (divCounter(2, 0) === 7.U)
 }

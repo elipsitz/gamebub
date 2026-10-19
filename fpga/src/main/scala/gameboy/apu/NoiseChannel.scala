@@ -35,27 +35,32 @@ class NoiseChannel extends Module {
 
   // LFSR
   val timer = RegInit(0.U(22.W))
-  val timerMax = Mux(io.lfsrConfig.divider === 0.U, 8.U, io.lfsrConfig.divider << 4) << io.lfsrConfig.shift
+  val timerDivider = Mux(io.lfsrConfig.divider === 0.U, 8.U, io.lfsrConfig.divider << 4)
+  val timerPeriod = timerDivider << io.lfsrConfig.shift
+  val timerReload = timerPeriod - 1.U
   val shiftRegister = RegInit(0.U(15.W))
 
   when (io.pulse4Mhz) {
-    when (timer === 0.U) {
-      timer := timerMax
-      val bit = !(shiftRegister(0) ^ shiftRegister(1))
-      shiftRegister := Cat(
-        bit,
-        shiftRegister(14, 8),
-        Mux(io.lfsrConfig.size, bit, shiftRegister(7)),
-        shiftRegister(6, 1),
-      )
-    } .otherwise {
-      timer := timer - 1.U
+    // When shift is 14 or 15, LFSR receives no clocks
+    when (io.lfsrConfig.shift < 14.U) {
+      when (timer === 0.U) {
+        timer := timerReload
+        val bit = !(shiftRegister(0) ^ shiftRegister(1))
+        shiftRegister := Cat(
+          bit,
+          shiftRegister(14, 8),
+          Mux(io.lfsrConfig.size, bit, shiftRegister(7)),
+          shiftRegister(6, 1),
+        )
+      } .otherwise {
+        timer := timer - 1.U
+      }
     }
   }
 
   when (io.trigger) {
     shiftRegister := 0.U
-    timer := timerMax
+    timer := timerReload
   }
 
   io.out := Mux(shiftRegister(0), volumeUnit.io.out, 0.U)

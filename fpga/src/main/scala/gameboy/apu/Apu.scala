@@ -263,9 +263,13 @@ class Apu(config: Gameboy.Configuration) extends Module {
   }
 
   // Mixer
-  val dacOutput = VecInit((0 to 3).map(i =>
-    Mux(channelEnabled(i), 0xF.S(5.W) - (channels(i).out << 1).asSInt, 0.S)
-  ))
+  val dacOutput = VecInit(Seq.tabulate(4)(i => {
+    Mux(
+      channelEnabled(i) && channels(i).dacEnabled,
+      (channels(i).out << 1).zext - channels(i).maxOut.zext,
+      0.S,
+    )
+  }))
   val mixerLeft = VecInit((0 to 3).map(i => Mux(regPanning.left(i), dacOutput(i), 0.S))).reduceTree(_ +& _)
   val mixerRight = VecInit((0 to 3).map(i => Mux(regPanning.right(i), dacOutput(i), 0.S))).reduceTree(_ +& _)
   io.output.left := mixerLeft * (regVolume.leftVolume +& 1.U).zext

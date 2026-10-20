@@ -31,20 +31,24 @@ class MMIO(numTargets: Int) extends Module {
 
   val queuedRequest = RegInit(false.B)
   val queuedWrite = RegInit(false.B)
-  val queuedAddress = Reg(UInt(9.W))
+  val queuedAddress = Reg(UInt(14.W))
   val queuedMask = Reg(UInt(4.W))
+  val queuedAddressValid = RegInit(false.B)
 
   val isValid = VecInit(targets.map(_.valid)).asUInt.orR
   for (target <- targets) {
     target.address := queuedAddress
-    target.request := queuedRequest && io.enable
+    target.request := queuedRequest && queuedAddressValid && io.enable
     target.write := queuedWrite
     target.mask := queuedMask
     target.dataWrite := io.mem.dataWrite
   }
 
-  when (isValid) {
+  when (isValid && queuedAddressValid) {
     io.mem.dataRead := Mux1H(targets.map(t => (t.valid, t.dataRead)))
+  } .elsewhen (queuedAddress === (0x800 >> 2).U) {
+    // Stubbed out special "Internal Memory Control" register
+    io.mem.dataRead := "h0D000020".U
   } .otherwise {
     // TODO: handle open bus
     io.mem.dataRead := 0.U
@@ -65,8 +69,8 @@ class MMIO(numTargets: Int) extends Module {
     when (io.mem.request) {
       queuedRequest := true.B
       queuedWrite := io.mem.write
-      // TODO: handle I/O isn't actually mirrored except for one register?
       queuedAddress := io.mem.address >> 2
+      queuedAddressValid := io.mem.address < 0x800.U
       queuedMask := io.mem.mask
     }
   }

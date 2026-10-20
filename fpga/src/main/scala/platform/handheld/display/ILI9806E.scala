@@ -79,7 +79,7 @@ class ILI9806E(
     assert(totalWidth >= totalWidthMin)
 
     val x = RegInit(0.U(log2Ceil(totalWidth).W))
-    val y = RegInit(0.U(log2Ceil(totalHeightMax).W))
+    val y = RegInit(0.U((log2Ceil(totalHeightMax) + 1).W))
     io.pixelX := x - (hSync + hBackPorch).U
     io.pixelY := y - (vSync + vBackPorch).U
 

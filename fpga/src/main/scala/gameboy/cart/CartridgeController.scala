@@ -48,7 +48,6 @@ class CartridgeController extends Module {
   io.cartridge.nWR := reg_nWR
   io.cartridge.nRD := reg_nRD
   io.cartridge.nCS := reg_nCS
-  io.cartridge.nResetOut := true.B  // TODO
   io.cartridge.address := regAddressOut
   io.cartridge.dataOut := regDataOut
   io.busDataRead := io.cartridge.dataIn

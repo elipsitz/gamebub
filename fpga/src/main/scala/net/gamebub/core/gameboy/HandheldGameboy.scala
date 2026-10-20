@@ -244,15 +244,20 @@ class HandheldGameboy extends Module with Core {
   dmgPaletteInterface.dataRead := 0.U
   dmgPaletteInterface.done := RegNext(dmgPaletteInterface.enable)
 
+  // Reset
+  val regCoreResetCombined = RegInit(true.B)
+  regCoreResetCombined := false.B
+  when (regCoreReset || regCoreResetOnce) {
+    regCoreResetCombined := true.B
+  }
+
   // Gameboy
   val gameboyConfig = Gameboy.Configuration(
     skipBootrom = false,
     optimizeForSimulation = false,
   )
   val gameboy = Module(new Gameboy(gameboyConfig))
-  when (regCoreReset || regCoreResetOnce) {
-    gameboy.reset := true.B
-  }
+  gameboy.reset := regCoreResetCombined
   gameboy.io.isCgb := configRegSystem.isCgb
 
   // Gameboy clock control
@@ -508,10 +513,18 @@ class HandheldGameboy extends Module with Core {
     )
 
     // Pin 30: nRST
-    // TODO: open-drain bidirectional
-    io.cartridge.pin30Dir := true.B
-    io.cartridge.pin30Out := gameboy.io.cartridge.nResetOut
-    gameboy.io.cartridge.nResetIn := io.cartridge.pin30In
+    // *Bidirectional* open-drain active-low reset
+    // 1) Held low by the device during power up
+    // 2) The cartridge can *also* hold it low to reset the device
+    val resetDir = RegInit(true.B)
+    io.cartridge.pin30Dir := resetDir
+    io.cartridge.pin30Out := false.B
+    // When the core is resetting, hold the pin low.
+    resetDir := regCoreReset || regCoreResetOnce
+    // When the pin is low... reset the core.
+    when (RegNext(RegNext(io.cartridge.pin30In)) === 0.U) {
+      regCoreResetCombined := true.B
+    }
 
     // Pin 31: VIN
     io.cartridge.pin31Dir := false.B

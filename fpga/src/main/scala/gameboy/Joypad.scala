@@ -19,7 +19,7 @@ class Joypad extends Module {
     !((io.state.right && selectDirection) || (io.state.a && selectAction)),
   )
 
-  io.dataRead := Cat("b1100".U(4.W), readState)
+  io.dataRead := Cat("b11".U(2.W), !selectAction, !selectDirection, readState)
   // IRQ when any bit in readState goes from high to low
   io.interruptRequest := (RegEnable(readState, 0.U, io.clocker.enable) & (~readState).asUInt).orR
 

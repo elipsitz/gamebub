@@ -5,6 +5,7 @@ import chisel3.util._
 import gameboy.Gameboy
 import gameboy.cart.emu.{EmuCartConfig, EmuCartridge, Mbc3RtcAccess, RtcState}
 import HandheldGameboy.CommandState
+import lib.audio.AudioFilterChain
 import lib.mem.{MemoryInterface, MemoryMap, PipelineInterfaceBridge, RegisterMap}
 import lib.mem.MemoryArbiter
 import lib.mem.PipelineMemoryArbiter
@@ -283,8 +284,18 @@ class HandheldGameboy extends Module with Core {
   io.pmod.out := DontCare
   io.pmod.dir := 0.U(4.W)
 
-  io.audio.left := gameboy.io.apu.left << 6
-  io.audio.right := gameboy.io.apu.right << 6
+  // Audio output and filtering
+  val audioFilter = Module(new AudioFilterChain(
+    inputRateHz = io.clocks.clockSystemHz,
+    cicR = (io.clocks.clockSystemHz.toFloat / (4 * 48000)).ceil.toInt,
+    dataBits = 16,
+    outputRateHz = 48000,
+  ))
+  val audioShift = audioFilter.dataBits - 10
+  audioFilter.io.in(0) := gameboy.io.apu.left << audioShift
+  audioFilter.io.in(1) := gameboy.io.apu.right << audioShift
+  io.audio.left := audioFilter.io.out(0)
+  io.audio.right := audioFilter.io.out(1)
 
   // Link port
   io.link.soOut := gameboy.io.serial.out

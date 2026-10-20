@@ -5,6 +5,7 @@ import chisel3.util._
 import gba.GBA
 import gba.cart.emu.EmulatedCartridge
 import HandheldGba.CommandState
+import lib.audio.AudioFilterChain
 import lib.mem.{MemoryArbiter, MemoryInterface, MemoryMap, PipelineInterfaceBridge, PipelineMemoryInterface, RegisterMap}
 import lib.mem.PipelineMemoryArbiter
 import lib.mem.PipelineMemoryBurstCdc
@@ -426,9 +427,18 @@ class HandheldGba extends Module with Core {
   io.video.vblank := gba.io.ppu.vblank
   io.video.hblank := gba.io.ppu.hblank
 
-  // Audio output
-  io.audio.left := gba.io.apu.left << 6
-  io.audio.right := gba.io.apu.right << 6
+  // Audio output and filtering
+  val audioFilter = Module(new AudioFilterChain(
+    inputRateHz = io.clocks.clockSystemHz,
+    cicR = (io.clocks.clockSystemHz.toFloat / (4 * 48000)).ceil.toInt,
+    dataBits = 16,
+    outputRateHz = 48000,
+  ))
+  val audioShift = audioFilter.dataBits - 10
+  audioFilter.io.in(0) := gba.io.apu.left << audioShift
+  audioFilter.io.in(1) := gba.io.apu.right << audioShift
+  io.audio.left := audioFilter.io.out(0)
+  io.audio.right := audioFilter.io.out(1)
 
   // Keypad
   gba.io.keypad.a := io.input.buttons.a

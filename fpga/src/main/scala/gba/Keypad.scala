@@ -29,6 +29,8 @@ class Keypad extends Module {
     )
   )
 
+  regKeyControl._padding := 0.U
+
   // Interrupt
   val mask = regKeyControl.mask.asUInt
   val selectedPressed = mask & io.state.asUInt

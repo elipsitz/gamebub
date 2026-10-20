@@ -32,7 +32,6 @@ class Apu extends Module {
   })
   val logger = Logger("apu", enable = io.enable)
 
-  // TODO: SOUNDBIAS is stubbed to allow BIOS to boot
   val regSoundbias = RegInit(0.U.asTypeOf(new ApuRegisters.SoundBias))
   val regPsgVolume = RegInit(0.U.asTypeOf(new ApuRegisters.PsgVolume))
   val regPsgPanning = RegInit(0.U.asTypeOf(new ApuRegisters.PsgPanning))
@@ -114,6 +113,13 @@ class Apu extends Module {
       }
     })),
   )
+
+  // Zero out fake padding bits
+  regPsgVolume._padding1 := 0.U
+  regSoundbias._padding1 := 0.U
+  regSoundbias._padding2 := 0.U
+  regDirectControl.resetA := false.B
+  regDirectControl.resetB := false.B
 
   when (!regMasterEnable) {
     psg.reset := true.B

@@ -17,6 +17,8 @@ class NoiseChannel extends Module {
   val io = IO(new ChannelIO {
     val lengthConfig = Input(new LengthControlConfig(6))
     val volumeConfig = Input(new VolumeEnvelopeConfig)
+    val volumeWrite = Input(Bool())
+    val volumeWriteData = Input(UInt(8.W))
 
     val lfsrConfig = Input(new NoiseChannelConfig)
   })
@@ -32,6 +34,8 @@ class NoiseChannel extends Module {
   volumeUnit.io.trigger := io.trigger
   volumeUnit.io.config := io.volumeConfig
   volumeUnit.io.tick := io.ticks.volume
+  volumeUnit.io.write := io.volumeWrite
+  volumeUnit.io.writeData := io.volumeWriteData
 
   // LFSR
   val timer = RegInit(0.U(22.W))

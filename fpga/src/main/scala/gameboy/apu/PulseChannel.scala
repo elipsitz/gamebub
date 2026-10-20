@@ -6,6 +6,8 @@ import chisel3.util._
 class PulseChannelIO extends ChannelIO {
   val lengthConfig = Input(new LengthControlConfig(6))
   val volumeConfig = Input(new VolumeEnvelopeConfig)
+  val volumeWrite = Input(Bool())
+  val volumeWriteData = Input(UInt(8.W))
 
   val wavelength = Input(UInt(11.W))
   val duty = Input(UInt(2.W))
@@ -31,6 +33,8 @@ class PulseChannel extends Module {
   volumeUnit.io.trigger := io.trigger
   volumeUnit.io.config := io.volumeConfig
   volumeUnit.io.tick := io.ticks.volume
+  volumeUnit.io.write := io.volumeWrite
+  volumeUnit.io.writeData := io.volumeWriteData
 
   // Counter within the wave table. Only reset when APU turns off.
   val waveIndex = RegInit(0.U(3.W))
@@ -154,6 +158,8 @@ class PulseChannelWithSweep extends Module {
   pulseChannel.io.ticks := io.ticks
   pulseChannel.io.lengthConfig := io.lengthConfig
   pulseChannel.io.volumeConfig := io.volumeConfig
+  pulseChannel.io.volumeWrite := io.volumeWrite
+  pulseChannel.io.volumeWriteData := io.volumeWriteData
   pulseChannel.io.wavelength := wavelength
   pulseChannel.io.duty := io.duty
   io.dacEnabled := pulseChannel.io.dacEnabled

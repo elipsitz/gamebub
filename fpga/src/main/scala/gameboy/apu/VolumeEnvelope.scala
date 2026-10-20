@@ -1,7 +1,7 @@
 package gameboy.apu
 
 import chisel3._
-
+import chisel3.util._
 
 class VolumeEnvelopeConfig extends Bundle {
   /** Initial volume level */
@@ -20,6 +20,10 @@ class VolumeEnvelope extends Module {
     val config = Input(new VolumeEnvelopeConfig)
     /** Volume envelope tick pulse from frame sequencer (64 Hz) */
     val tick = Input(Bool())
+    /** Whether the NRx2 register is being written */
+    val write = Input(Bool())
+    /** Data being written to NRx2 register */
+    val writeData = Input(UInt(8.W))
     /** Output volume level */
     val out = Output(UInt(4.W))
   })
@@ -27,7 +31,8 @@ class VolumeEnvelope extends Module {
   val volume = RegInit(0.U(4.W))
   val timer = RegInit(0.U(3.W))
   io.out := volume
-  // Config latched on trigger event.
+  // Config latched on trigger event
+
   val modeIncrease = RegInit(false.B)
   val sweepPace = RegInit(0.U(3.W))
 
@@ -45,6 +50,33 @@ class VolumeEnvelope extends Module {
     }
   }
 
+  // Direct write to NRx2 during playback ("zombie" mode)
+  when (io.write) {
+    val newConfig = io.writeData.asTypeOf(new VolumeEnvelopeConfig)
+    val prevIncrease = modeIncrease
+    val prevPace = sweepPace
+
+    modeIncrease := newConfig.modeIncrease
+    sweepPace := newConfig.sweepPace
+    timer := newConfig.sweepPace
+
+    val shouldInvert = newConfig.modeIncrease ^ prevIncrease
+    val shouldTick = (newConfig.sweepPace =/= 0.U) && (prevPace === 0.U)
+    val isEightTick = newConfig.modeIncrease && prevIncrease && (newConfig.sweepPace === 0.U) && (prevPace === 0.U)
+
+    val invertedVol = Mux(newConfig.modeIncrease,
+      Mux(prevPace === 0.U, volume ^ 0xF.U, (14.U - volume)(3, 0)),
+      (16.U - volume)(3, 0)
+    )
+    val postInvertVol = Mux(shouldInvert, invertedVol, volume)
+
+    val shouldStep = Mux(shouldInvert, !newConfig.modeIncrease && shouldTick, shouldTick || isEightTick)
+    val volTicked = Mux(newConfig.modeIncrease, (postInvertVol + 1.U)(3, 0), (postInvertVol - 1.U)(3, 0))
+
+    volume := Mux(shouldStep, volTicked, postInvertVol)
+  }
+
+  // Trigger event
   when (io.trigger) {
     modeIncrease := io.config.modeIncrease
     sweepPace := io.config.sweepPace

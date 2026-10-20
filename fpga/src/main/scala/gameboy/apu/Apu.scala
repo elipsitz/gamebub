@@ -56,6 +56,8 @@ class Apu(config: Gameboy.Configuration) extends Module {
   channel1.io.lengthConfig.lengthLoad := false.B
   channel1.io.lengthConfig.enabled := regLengthEnable(0)
   channel1.io.volumeConfig := channel1VolumeConfig
+  channel1.io.volumeWrite := false.B
+  channel1.io.volumeWriteData := DontCare
   channel1.io.wavelength := DontCare
   channel1.io.wavelengthLoad := 0.U
   channel1.io.duty := channel1Duty
@@ -70,6 +72,8 @@ class Apu(config: Gameboy.Configuration) extends Module {
   channel2.io.lengthConfig.lengthLoad := false.B
   channel2.io.lengthConfig.enabled := regLengthEnable(1)
   channel2.io.volumeConfig := channel2VolumeConfig
+  channel2.io.volumeWrite := false.B
+  channel2.io.volumeWriteData := DontCare
   channel2.io.wavelength := channel2Wavelength
   channel2.io.duty := channel2Duty
 
@@ -95,6 +99,8 @@ class Apu(config: Gameboy.Configuration) extends Module {
   channel4.io.lengthConfig.lengthLoad := false.B
   channel4.io.lengthConfig.enabled := regLengthEnable(3)
   channel4.io.volumeConfig := channel4VolumeConfig
+  channel4.io.volumeWrite := false.B
+  channel4.io.volumeWriteData := DontCare
   channel4.io.lfsrConfig := channel4LfsrConfig
 
   // Shared channel stuff
@@ -124,7 +130,11 @@ class Apu(config: Gameboy.Configuration) extends Module {
         channel1.io.lengthConfig.length := io.reg.dataWrite(5, 0)
         channel1.io.lengthConfig.lengthLoad := true.B
       }
-      is (0x12.U) { channel1VolumeConfig := io.reg.dataWrite.asTypeOf(new VolumeEnvelopeConfig) }
+      is (0x12.U) {
+        channel1VolumeConfig := io.reg.dataWrite.asTypeOf(new VolumeEnvelopeConfig)
+        channel1.io.volumeWrite := true.B
+        channel1.io.volumeWriteData := io.reg.dataWrite
+      }
       is (0x13.U) {
         channel1.io.wavelength := Cat(io.reg.dataWrite, io.reg.dataWrite)
         channel1.io.wavelengthLoad := "b01".U(2.W)
@@ -143,7 +153,11 @@ class Apu(config: Gameboy.Configuration) extends Module {
         channel2.io.lengthConfig.length := io.reg.dataWrite(5, 0)
         channel2.io.lengthConfig.lengthLoad := true.B
       }
-      is (0x17.U) { channel2VolumeConfig := io.reg.dataWrite.asTypeOf(new VolumeEnvelopeConfig) }
+      is (0x17.U) {
+        channel2VolumeConfig := io.reg.dataWrite.asTypeOf(new VolumeEnvelopeConfig)
+        channel2.io.volumeWrite := true.B
+        channel2.io.volumeWriteData := io.reg.dataWrite
+      }
       is (0x18.U) { channel2Wavelength := Cat(channel2Wavelength(10, 8), io.reg.dataWrite) }
       is (0x19.U) {
         regLengthEnable(1) := io.reg.dataWrite(6)
@@ -174,7 +188,11 @@ class Apu(config: Gameboy.Configuration) extends Module {
         channel4.io.lengthConfig.length := io.reg.dataWrite(5, 0)
         channel4.io.lengthConfig.lengthLoad := true.B
       }
-      is (0x21.U) { channel4VolumeConfig := io.reg.dataWrite.asTypeOf(new VolumeEnvelopeConfig) }
+      is (0x21.U) {
+        channel4VolumeConfig := io.reg.dataWrite.asTypeOf(new VolumeEnvelopeConfig)
+        channel4.io.volumeWrite := true.B
+        channel4.io.volumeWriteData := io.reg.dataWrite
+      }
       is (0x22.U) { channel4LfsrConfig := io.reg.dataWrite.asTypeOf(new NoiseChannelConfig) }
       is (0x23.U) {
         regLengthEnable(3) := io.reg.dataWrite(6)
@@ -232,6 +250,7 @@ class Apu(config: Gameboy.Configuration) extends Module {
 
   // APU off reset
   when (!regApuEnable && io.clocker.enable) {
+    channelEnabled := VecInit.fill(4)(false.B)
     regPanning := 0.U.asTypeOf(new RegisterSoundPanning)
     regVolume := 0.U.asTypeOf(new RegisterMasterVolume)
     regLengthEnable := 0.U.asTypeOf(regLengthEnable)

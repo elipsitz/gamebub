@@ -24,30 +24,25 @@ class WaveChannel extends Module {
   // Index within the wave RAM
   val waveIndex = RegInit(0.U(5.W))
   // Counter that advances the waveIndex. Reset on trigger.
-  val waveCounter = RegInit(0.U(13.W))
-  // Wave counter counts up to this value.
-  val waveCounterMax = (2048.U(13.W) - io.wavelength) << 1
+  val waveCounter = RegInit(0.U(12.W))
+  // Wave counter counts down from this value.
+  val waveCounterReload = io.wavelength << 1
 
-  // Current sample read from wave counter
-  val currentSample = RegInit(0.U(4.W))
   io.waveRamAddress := waveIndex(4, 1)
-
+  val currentSample = Mux(waveIndex(0), io.waveRamDataRead(3, 0), io.waveRamDataRead(7, 4))
 
   when (io.pulse4Mhz) {
-    when (waveCounter === 0.U) {
+    val nextWaveCounter = waveCounter + 1.U
+    waveCounter := nextWaveCounter
+    when (nextWaveCounter === 0.U) {
+      waveCounter := waveCounterReload
       waveIndex := waveIndex + 1.U
-      waveCounter := waveCounterMax
-
-      // TODO we're actually off by one because waveIndex is registered?
-      // Maybe this should be turned into single port ram?
-      currentSample := Mux(waveIndex(0), io.waveRamDataRead(7, 4), io.waveRamDataRead(3, 0))
-    } .otherwise {
-      waveCounter := waveCounter - 1.U
     }
   }
 
   when (io.trigger) {
-    waveCounter := waveCounterMax
+    waveCounter := waveCounterReload
+    waveIndex := 0.U
   }
 
   io.out := VecInit(0.U, currentSample, currentSample >> 1, currentSample >> 2)(io.volume)

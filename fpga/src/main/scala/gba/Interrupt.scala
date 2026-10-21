@@ -31,16 +31,21 @@ class Interrupt extends Module {
 
   val irqActive = (regRequested.asUInt & regEnabled.asUInt) =/= 0.U
   val irqAck = WireDefault(0.U((new Interrupt.Flags).getWidth.W))
+
+  // 3 cycle delay on IRQ input signal, likely synchronizers
+  val irqDelay = ShiftRegister(ime(0) && irqActive, 3, io.enable)
+  val haltExitDelay = ShiftRegister(irqActive, 3, io.enable)
+
   when (io.enable) {
     regRequested := ((regRequested.asUInt & (~irqAck)) | io.peripheralIrq.asUInt).asTypeOf(new Interrupt.Flags)
 
-    when (irqActive && regCpuHalt) {
+    when (haltExitDelay) {
       // Exiting HALT happens when IE & IF, regardless of IME (or CPU irq)
       regCpuHalt := false.B
       logger.info(cf"CPU resumed")
     }
   }
-  io.irq := ime(0) && irqActive
+  io.irq := irqDelay
   io.cpuHalt := regCpuHalt
 
   io.mmio <> MmioMap(

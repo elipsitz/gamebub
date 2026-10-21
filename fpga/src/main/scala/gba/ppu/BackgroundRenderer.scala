@@ -169,16 +169,16 @@ class BackgroundRenderer extends Module {
     val control = io.bgControl(index)
     val state = layer(index)
     // Activate
-    val startTick = (30 + index).U - (io.bgOffX(index)(2, 0) << 2).asUInt
+    val startTick = (2 + index).U
     when (io.enable && isVdraw && io.tick === startTick) {
       state.active := true.B
     }
 
     // Render
     when (io.enable && state.active) {
-      val x = state.pos + io.bgOffX(index)
+      val x = state.pos + io.bgOffX(index) - 7.U
       val y = io.scanline + io.bgOffY(index) - Mux(control.mosaic, mosaicCounter, 0.U)
-      val stage = state.cycle(4, 2)
+      val stage = x(2, 0)
       val fetch4bpp = (stage(1, 0) === 1.U) && !control.bpp8
       val fetch8bpp = (stage(0) === 1.U) && control.bpp8
       // Fetch

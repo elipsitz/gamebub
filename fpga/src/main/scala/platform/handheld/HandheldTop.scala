@@ -449,7 +449,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     entries = Seq(
       // Read-only informational registers
       // Framework version
-      0x0000 -> RegisterMap.Entry.r("hB0000001".U),
+      0x0000 -> RegisterMap.Entry.r("hB0000002".U),
       // System clock frequency (Hz)
       0x0004 -> RegisterMap.Entry.r(clockSystemHz.U),
       // Video dimensions

@@ -148,10 +148,10 @@ class BackgroundRenderer extends Module {
     when (isVdraw) {
       for (i <- 0 until 2) {
         when (io.writeAffX(i)) {
-          affX(i) := io.bgAffX(i)
+          affXLine(i) := io.bgAffX(i)
         }
         when (io.writeAffY(i)) {
-          affY(i) := io.bgAffY(i)
+          affYLine(i) := io.bgAffY(i)
         }
       }
     } .otherwise {

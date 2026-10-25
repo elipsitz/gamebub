@@ -7,7 +7,6 @@ use crate::core::CoreManager;
 use crate::device::drivers::fpga;
 use crate::device::Device;
 use crate::device::DisplayMode;
-use crate::fwinfo::FirmwareVersion;
 use crate::input::InputManager;
 use crate::{kvs, ui};
 
@@ -22,7 +21,7 @@ pub enum Message {
         serial: u32,
         #[allow(unused)]
         hardware: u32,
-        firmware: u32,
+        firmware: String,
     },
     /// The handheld has undocked
     DockEnd,
@@ -110,7 +109,7 @@ fn dispatch(message: Message) {
         } => {
             ui::send(ui::Message::DockBegin {
                 serial: format!("{serial:08X}"),
-                firmware: format!("{}", FirmwareVersion::from(firmware)),
+                firmware: firmware,
             });
 
             InputManager::lock().remove_all_gamepads();

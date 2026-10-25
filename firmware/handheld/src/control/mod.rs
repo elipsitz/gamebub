@@ -70,7 +70,19 @@ pub fn handle_control_out(request: &Request, buf: &[u8]) -> Result<(), ()> {
             let serial_number = u32::from_le_bytes(buf[4..8].try_into().unwrap());
             let hardware_version = u32::from_le_bytes(buf[8..12].try_into().unwrap());
             let firmware_version = u32::from_le_bytes(buf[12..16].try_into().unwrap());
-            log::info!("Dock: serial={serial_number:08X} hw={hardware_version:08X} fw={firmware_version:08X}");
+
+            let firmware_version = if buf.len() >= 32 {
+                str::from_utf8(&buf[16..32])
+                    .unwrap_or_default()
+                    .trim_end_matches('\0')
+                    .to_string()
+            } else {
+                format!("{}", crate::fwinfo::FirmwareVersion::from(firmware_version))
+            };
+
+            log::info!(
+                "Dock: serial={serial_number:08X} hw={hardware_version:08X} fw={firmware_version}"
+            );
             worker::send(worker::Message::DockBegin {
                 serial: serial_number,
                 hardware: hardware_version,

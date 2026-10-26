@@ -430,6 +430,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   val controlVideoFilter = RegInit(0.U.asTypeOf(new Bundle {
     val darken = Bool()
   }))
+  val controlFramebufferLock = RegInit(false.B)
 
   val controlCommandHost = RegInit(0.U.asTypeOf(Output(new HostV0.CommandChannel)))
   val controlCommandCore = RegInit(0.U.asTypeOf(Output(new HostV0.CommandChannel)))
@@ -474,6 +475,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
       0x1010 -> RegisterMap.Entry.w(controlCoreFocus),
       0x1014 -> RegisterMap.Entry.w(controlVibrate),
       0x1018 -> RegisterMap.Entry.w(controlVideoFilter),
+      0x101C -> RegisterMap.Entry.w(controlFramebufferLock),
 
       0x1100 -> RegisterMap.Entry.rw(controlCommandHost),
       0x1104 -> RegisterMap.Entry.rw(controlCommandCore),
@@ -896,18 +898,16 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   {
     val framebufferX = RegInit(0.U(log2Ceil(videoWidth).W))
     val framebufferY = RegInit(0.U(log2Ceil(videoHeight).W))
-    val framebufferWriteIndex = RegInit(0.U(1.W))
+    val framebufferWriteIndex = RegInit(1.U(1.W))
 
-    when (coreVideo.dataEnable && !framebufferInterfaceRead) {
-      // Core framebuffer write and SPI framebuffer read share the same read/write port,
-      // so ensure that they're not activated at the same time (so they can be inferred correctly).
-      val address = (framebufferY * videoWidth.U(10.W)) + framebufferX
-      val data = Wire(ColorRGB(videoColorDepthR, videoColorDepthG, videoColorDepthB))
-      data.r := coreVideo.dataR
-      data.g := coreVideo.dataG
-      data.b := coreVideo.dataB
-      for (i <- 0 until 2) {
-        framebuffers(i).readwritePorts(0).enable := (i.U === framebufferWriteIndex)
+    val address = (framebufferY * videoWidth.U(10.W)) + framebufferX
+    val data = Wire(ColorRGB(videoColorDepthR, videoColorDepthG, videoColorDepthB))
+    data.r := coreVideo.dataR
+    data.g := coreVideo.dataG
+    data.b := coreVideo.dataB
+    for (i <- 0 until 2) {
+      when (coreVideo.dataEnable && i.U === framebufferWriteIndex) {
+        framebuffers(i).readwritePorts(0).enable := true.B
         framebuffers(i).readwritePorts(0).address := address
         framebuffers(i).readwritePorts(0).isWrite := true.B
         framebuffers(i).readwritePorts(0).writeData := data.asUInt
@@ -916,7 +916,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
 
     val vblankEdge = coreVideo.vblank && !RegNext(coreVideo.vblank)
     val hblankEdge = coreVideo.hblank && !RegNext(coreVideo.hblank)
-    when (vblankEdge) {
+    when (vblankEdge && !controlFramebufferLock) {
       regLastFrameComplete := framebufferWriteIndex
       framebufferWriteIndex := !framebufferWriteIndex
     }

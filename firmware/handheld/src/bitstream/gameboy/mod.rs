@@ -205,7 +205,10 @@ impl Gameboy {
 impl Bitstream for Gameboy {
     fn on_vblank_irq(&mut self) {
         let mut device = Device::lock();
-        let sample = device.imu.read_accel().unwrap();
+        let Ok(sample) = device.imu.read_accel() else {
+            log::warn!("Error sampling accel");
+            return;
+        };
         // Invert X and Y
         let accel_x = ((0x81D0 as f32) + ((0x70 as f32) * -sample.x)) as u16;
         let accel_y = ((0x81D0 as f32) + ((0x70 as f32) * -sample.y)) as u16;

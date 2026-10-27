@@ -311,7 +311,10 @@ impl Bitstream for Gba {
         // Read IMU
         let has_gyro = self.emu_cart_config.as_ref().is_some_and(|h| h.has_gyro);
         if has_gyro {
-            let gyro_sample = device.imu.read_gyro().unwrap();
+            let Ok(gyro_sample) = device.imu.read_gyro() else {
+                log::warn!("Error sampling gyro");
+                return;
+            };
             let gyro_z = ((0x700 as f32) - gyro_sample.z) as u16;
             device
                 .fpga
@@ -320,7 +323,10 @@ impl Bitstream for Gba {
         }
         let has_accel = self.emu_cart_config.as_ref().is_some_and(|h| h.has_accel);
         if has_accel {
-            let accel_sample = device.imu.read_accel().unwrap();
+            let Ok(accel_sample) = device.imu.read_accel() else {
+                log::warn!("Error sampling accel");
+                return;
+            };
             let accel_x = ((0x3A0 as f32) + ((0x1D0 as f32) * -accel_sample.x)) as u16;
             let accel_y = ((0x3A0 as f32) + ((0x1D0 as f32) * -accel_sample.y)) as u16;
             device

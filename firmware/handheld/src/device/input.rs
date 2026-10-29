@@ -3,6 +3,7 @@ use crate::{device::drivers::fpga, input::InputState};
 
 impl Device<'_> {
     /// Get the current state of the internal buttons from the FPGA.
+    #[allow(clippy::field_reassign_with_default)]
     pub fn get_input_state(&mut self) -> Result<InputState, ()> {
         let fpga_buttons = self
             .fpga

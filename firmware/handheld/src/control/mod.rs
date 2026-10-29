@@ -57,7 +57,7 @@ pub fn handle_control_out(request: &Request, buf: &[u8]) -> Result<(), ()> {
             Ok(())
         }
         REQUEST_LCD_DEBUG => {
-            if buf.len() == 0 {
+            if buf.is_empty() {
                 return Err(());
             }
             let _ = Device::lock().lcd.write_cmd(buf[0], &buf[1..]);

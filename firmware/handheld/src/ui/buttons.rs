@@ -33,9 +33,9 @@ pub enum ButtonEvent {
     Released(Button),
 }
 
-impl Into<slint::platform::WindowEvent> for ButtonEvent {
-    fn into(self) -> slint::platform::WindowEvent {
-        let button = match self {
+impl From<ButtonEvent> for slint::platform::WindowEvent {
+    fn from(val: ButtonEvent) -> Self {
+        let button = match val {
             ButtonEvent::Pressed(b, _) => b,
             ButtonEvent::Released(b) => b,
         };
@@ -57,7 +57,7 @@ impl Into<slint::platform::WindowEvent> for ButtonEvent {
             Button::VolDown => "VolDown".into(),
             Button::Power => "Power".into(),
         };
-        match self {
+        match val {
             ButtonEvent::Pressed(_, false) => WindowEvent::KeyPressed { text },
             ButtonEvent::Pressed(_, true) => WindowEvent::KeyPressRepeated { text },
             ButtonEvent::Released(_) => WindowEvent::KeyReleased { text },
@@ -92,6 +92,12 @@ impl ButtonState {
 /// Detects [`ButtonEvent`]s by diffing the state of buttons.
 pub struct ButtonEventDetector {
     state: EnumMap<Button, ButtonState>,
+}
+
+impl Default for ButtonEventDetector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ButtonEventDetector {

@@ -29,6 +29,7 @@ pub struct Sdcard {
 unsafe impl Send for Sdcard {}
 unsafe impl Sync for Sdcard {}
 
+#[allow(clippy::too_many_arguments)]
 pub fn mount_sdcard(
     path: &str,
     pin_clk: AnyOutputPin,

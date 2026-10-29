@@ -115,7 +115,7 @@ fn write_crash(crash: &CrashReport) -> std::io::Result<()> {
 pub fn maybe_persist() {
     let crash = unsafe { REPORT.assume_init_mut() };
     if crash.magic == MAGIC_NUMBER {
-        match write_crash(&crash) {
+        match write_crash(crash) {
             Ok(()) => log::info!("Wrote crash log to sdcard"),
             Err(e) => log::warn!("Failed to write crash: {e}"),
         }

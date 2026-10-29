@@ -171,7 +171,7 @@ impl UI {
 
         let root = slint::MainWindow::new().unwrap();
 
-        let ui = UI {
+        UI {
             framebuffer,
             lcd_line_buffer,
             window,
@@ -180,8 +180,7 @@ impl UI {
             root,
             button_event_detector: buttons::ButtonEventDetector::new(),
             idle_timer,
-        };
-        ui
+        }
     }
 
     pub fn run(&mut self) -> ! {

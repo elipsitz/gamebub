@@ -7,7 +7,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock, RwLock};
 pub mod keys;
 
 static KVS: OnceLock<Mutex<Kvs>> = OnceLock::new();
-static NAMESPACE: &'static str = "gb";
+static NAMESPACE: &str = "gb";
 
 /// TODO: a few possible changes:
 ///  * Use a single global lock for all keys and all keys' caches?

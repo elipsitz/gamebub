@@ -254,7 +254,7 @@ where
             }
         }
 
-        let buf = &data[0..(index + 7) / 8];
+        let buf = &data[0..index.div_ceil(8)];
         self.spi.write(buf).map_err(|_| Error::SpiError)
     }
 

@@ -28,5 +28,5 @@ pub fn copy_file(from: &Path, to: &Path) -> std::io::Result<u64> {
     }
 
     let mut writer = std::fs::File::create(to)?;
-    Ok(std::io::copy(&mut reader, &mut writer)?)
+    std::io::copy(&mut reader, &mut writer)
 }

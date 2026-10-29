@@ -20,11 +20,11 @@ jobs:
       matrix:
         action:
           - command: build
-            args: --release
+            args: --features=rev4 --release
           - command: fmt
             args: --all -- --check --color always
           - command: clippy
-            args: --all-targets --all-features --workspace -- -D warnings
+            args: --features=rev4 --all-targets --workspace -- -D warnings -A clippy::identity_op
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,7 +34,9 @@ jobs:
         uses: esp-rs/xtensa-toolchain@v1.5
         with:
           default: true
+          version: "1.93"
           buildtargets: esp32s3
           ldproxy: true
       - name: Run command
         run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+        working-directory: firmware/handheld

@@ -21,6 +21,7 @@ impl RtcState {
         }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_fpga(&self) -> u32 {
         (((self.seconds as u32) & 0b111111) << 0)
             | (((self.minutes as u32) & 0b111111) << 6)
@@ -48,6 +49,7 @@ impl RtcState {
         }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_disk(&self) -> [u8; 20] {
         let mut data = [0u8; 20];
         data[0..4].copy_from_slice(&u32::to_le_bytes(self.seconds as u32));
@@ -83,7 +85,7 @@ impl RtcState {
         self.seconds = Self::compute_ticks(self.seconds as u16, &mut ticks, 60, 1 << 6) as u8;
         self.minutes = Self::compute_ticks(self.minutes as u16, &mut ticks, 60, 1 << 6) as u8;
         self.hours = Self::compute_ticks(self.hours as u16, &mut ticks, 24, 1 << 5) as u8;
-        self.days = Self::compute_ticks(self.days as u16, &mut ticks, 1 << 9, 1 << 9) as u16;
+        self.days = Self::compute_ticks(self.days, &mut ticks, 1 << 9, 1 << 9) as u16;
         if ticks > 0 {
             self.days_overflow = true;
         }

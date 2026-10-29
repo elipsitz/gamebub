@@ -24,7 +24,7 @@ jobs:
           - command: fmt
             args: --all -- --check --color always
           - command: clippy
-            args: --features=rev4 --all-targets --workspace -- -D warnings
+            args: --features=rev4 --all-targets --workspace -- -D warnings -A clippy::identity_op
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

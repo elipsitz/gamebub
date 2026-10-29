@@ -38,3 +38,4 @@ jobs:
           ldproxy: true
       - name: Run command
         run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+        working-directory: firmware/handheld

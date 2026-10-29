@@ -109,7 +109,7 @@ fn dispatch(message: Message) {
         } => {
             ui::send(ui::Message::DockBegin {
                 serial: format!("{serial:08X}"),
-                firmware: firmware,
+                firmware,
             });
 
             InputManager::lock().remove_all_gamepads();

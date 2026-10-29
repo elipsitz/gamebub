@@ -260,7 +260,7 @@ where
             &mut [
                 Operation::Write(&[command]),
                 Operation::WriteWithWidth(&address, width),
-                Operation::WriteWithWidth(&data, width),
+                Operation::WriteWithWidth(data, width),
             ],
         )
     }

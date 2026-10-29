@@ -331,7 +331,7 @@ impl SettingsModel {
                 Device::lock().set_datetime(dt);
             }
             settings::Entry::Subpage { page, .. } => {
-                return SettingsAction::Subpage(*page);
+                return SettingsAction::Subpage(page);
             }
             settings::Entry::Screen { screen, .. } => {
                 return SettingsAction::Screen(*screen);

@@ -330,7 +330,7 @@ impl CoreHandler for Gameboy {
         assert!(id == FILE_SAVE);
 
         // Save RTC
-        if self.rom_header.as_ref().map_or(false, |h| h.has_rtc) {
+        if self.rom_header.as_ref().is_some_and(|h| h.has_rtc) {
             use rtc::RtcState;
             let mut device = Device::lock();
             let rtc_state = RtcState::from_fpga(device.fpga.read_u32(REG_RTC_STATE).unwrap());
@@ -350,7 +350,7 @@ impl CoreHandler for Gameboy {
         let mut device = Device::lock();
 
         // Enable/disable IMU as needed
-        if self.rom_header.as_ref().map_or(false, |h| h.has_sensor) {
+        if self.rom_header.as_ref().is_some_and(|h| h.has_sensor) {
             if paused {
                 device.imu.disable_accel().unwrap();
             } else {

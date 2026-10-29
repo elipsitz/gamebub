@@ -85,22 +85,19 @@ pub fn parse_bitstream_header(f: &mut dyn Read) -> anyhow::Result<BitstreamMetad
         }
 
         let payload = &buffer[0..length];
-        match tag {
-            consts::TAG_DESIGN => {
-                // Find UserID field
-                static PREFIX: &[u8] = b"UserID=";
-                for c in payload.windows(PREFIX.len() + 8) {
-                    if c.starts_with(PREFIX) {
-                        if let Ok(entry) = std::str::from_utf8(&c[PREFIX.len()..]) {
-                            if let Ok(value) = u32::from_str_radix(entry, 16) {
-                                metadata.user_id = Some(value);
-                            }
+        if tag == consts::TAG_DESIGN {
+            // Find UserID field
+            static PREFIX: &[u8] = b"UserID=";
+            for c in payload.windows(PREFIX.len() + 8) {
+                if c.starts_with(PREFIX) {
+                    if let Ok(entry) = std::str::from_utf8(&c[PREFIX.len()..]) {
+                        if let Ok(value) = u32::from_str_radix(entry, 16) {
+                            metadata.user_id = Some(value);
                         }
-                        break;
                     }
+                    break;
                 }
             }
-            _ => {}
         }
     }
 }

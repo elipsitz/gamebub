@@ -170,7 +170,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
     core_dir.push(id);
 
     // Read core.json
-    let file = File::open(&core_dir.join("core.json")).map_err(|_| "Failed to open core.json")?;
+    let file = File::open(core_dir.join("core.json")).map_err(|_| "Failed to open core.json")?;
     let reader = BufReader::with_capacity(256, file);
     let json_core: JsonCoreInfo =
         serde_json::from_reader(reader).map_err(|e| format!("Failed to parse core.json: {e}"))?;
@@ -199,13 +199,13 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
 
 fn get_device_target() -> &'static str {
     #[cfg(feature = "rev1")]
-    const TARGET: &'static str = "gamebub_rev1";
+    const TARGET: &str = "gamebub_rev1";
     #[cfg(feature = "rev2")]
-    const TARGET: &'static str = "gamebub_rev2";
+    const TARGET: &str = "gamebub_rev2";
     #[cfg(feature = "rev3")]
-    const TARGET: &'static str = "gamebub_rev3";
+    const TARGET: &str = "gamebub_rev3";
     #[cfg(feature = "rev4")]
-    const TARGET: &'static str = "gamebub_rev4";
+    const TARGET: &str = "gamebub_rev4";
 
     TARGET
 }

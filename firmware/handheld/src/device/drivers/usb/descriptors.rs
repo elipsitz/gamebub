@@ -303,7 +303,7 @@ impl Builder {
         ];
         assert!(descriptor.len() == CONFIG_DESCRIPTOR_LEN);
         self.configuration
-            .splice(0..CONFIG_DESCRIPTOR_LEN, descriptor.into_iter());
+            .splice(0..CONFIG_DESCRIPTOR_LEN, descriptor);
     }
 
     pub fn set_device_version(&mut self, version: u16) {

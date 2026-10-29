@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, ErrorKind, Read, Write},
+    io::{BufReader, BufWriter, Read, Write},
     ops::DerefMut as _,
     path::{Path, PathBuf},
     sync::{LazyLock, Mutex, MutexGuard},
@@ -327,7 +327,7 @@ impl CoreManager {
         response: &mut [u32],
         timeout: Duration,
     ) -> Result<(), CoreError> {
-        assert!(request.len() > 0);
+        assert!(!request.is_empty());
         // Write command and arguments
         {
             let mut device = Device::lock();
@@ -469,9 +469,7 @@ impl CoreManager {
         self.load_files()?;
 
         if let Some(core_handler) = self.core_handler.get_mut() {
-            core_handler
-                .on_before_run()
-                .map_err(|err| CoreError::Other(err))?;
+            core_handler.on_before_run().map_err(CoreError::Other)?;
         }
 
         // Tell the core we're finished setting up.
@@ -653,7 +651,7 @@ impl CoreManager {
                     // Arg 1: file ID
                     info.id as u32,
                     // Arg 2: file size (bytes)
-                    transferred as u32,
+                    transferred,
                     // Arg 3: reserved (0)
                     0,
                 ],
@@ -760,8 +758,7 @@ impl CoreManager {
         }
         let file = File::create(core.get_settings_path())?;
         let writer = BufWriter::with_capacity(256, file);
-        serde_json::to_writer(writer, settings)
-            .map_err(|e| std::io::Error::new(ErrorKind::Other, e))
+        serde_json::to_writer(writer, settings).map_err(std::io::Error::other)
     }
 
     /// Called when a file has been selected for the core.
@@ -795,7 +792,7 @@ impl CoreManager {
     }
 
     fn send_core_file_list(&self, path: &Path) {
-        let files = match self.list_core_files(&path) {
+        let files = match self.list_core_files(path) {
             Ok(files) => files,
             Err(e) => {
                 log::warn!("Error listing directory: {:?}", e);

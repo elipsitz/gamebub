@@ -83,7 +83,7 @@ impl RtcState {
         self.seconds = Self::compute_ticks(self.seconds as u16, &mut ticks, 60, 1 << 6) as u8;
         self.minutes = Self::compute_ticks(self.minutes as u16, &mut ticks, 60, 1 << 6) as u8;
         self.hours = Self::compute_ticks(self.hours as u16, &mut ticks, 24, 1 << 5) as u8;
-        self.days = Self::compute_ticks(self.days as u16, &mut ticks, 1 << 9, 1 << 9) as u16;
+        self.days = Self::compute_ticks(self.days, &mut ticks, 1 << 9, 1 << 9) as u16;
         if ticks > 0 {
             self.days_overflow = true;
         }

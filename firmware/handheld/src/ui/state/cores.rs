@@ -179,11 +179,11 @@ impl UiState {
         let path = &self.core_file_select_directory;
         let mut directory = path
             .strip_prefix(BASE_DIR)
-            .unwrap_or(&path)
+            .unwrap_or(path)
             .to_string_lossy()
             .into_owned();
         if !directory.starts_with("/") {
-            directory.insert_str(0, "/");
+            directory.insert(0, '/');
         }
 
         let root = self.root.unwrap();

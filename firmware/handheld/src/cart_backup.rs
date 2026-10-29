@@ -53,16 +53,16 @@ fn task(mut stream: CdcStream) {
         if tx_ready > 0 {
             // Read the data.
             let count = tx_ready.min(buf.len() as u32);
-            let mut buf = &mut buf[0..count as usize];
+            let buf = &mut buf[0..count as usize];
             device.fpga.write_u32(REG_TX_READ_LIMIT, count).unwrap();
             let command = fpga::SpiCommand::new(fpga::FpgaSpiWordSize::Bits8);
             device
                 .fpga
-                .spi_read(Some(MAX_CLOCK), command, FIFO_BASE, &mut buf)
+                .spi_read(Some(MAX_CLOCK), command, FIFO_BASE, buf)
                 .unwrap();
 
             // Write it to CDC.
-            let _ = stream.write_all(&buf);
+            let _ = stream.write_all(buf);
             let _ = stream.flush();
         }
 

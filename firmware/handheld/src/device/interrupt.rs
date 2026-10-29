@@ -13,12 +13,12 @@ use crate::{device::drivers::fpga, ui};
 
 use super::Device;
 
-const FLAG_MCU_IRQ: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(1) };
-const FLAG_HOME: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(2) };
-const FLAG_POWER: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(4) };
-const FLAG_VOL_UP: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(8) };
-const FLAG_VOL_DOWN: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(16) };
-const FLAG_VBUS_PGOOD: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(32) };
+const FLAG_MCU_IRQ: NonZeroU32 = NonZeroU32::new(1).unwrap();
+const FLAG_HOME: NonZeroU32 = NonZeroU32::new(2).unwrap();
+const FLAG_POWER: NonZeroU32 = NonZeroU32::new(4).unwrap();
+const FLAG_VOL_UP: NonZeroU32 = NonZeroU32::new(8).unwrap();
+const FLAG_VOL_DOWN: NonZeroU32 = NonZeroU32::new(16).unwrap();
+const FLAG_VBUS_PGOOD: NonZeroU32 = NonZeroU32::new(32).unwrap();
 const FLAG_BUTTONS: u32 =
     FLAG_HOME.get() | FLAG_POWER.get() | FLAG_VOL_UP.get() | FLAG_VOL_DOWN.get();
 

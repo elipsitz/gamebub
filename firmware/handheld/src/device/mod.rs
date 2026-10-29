@@ -117,7 +117,7 @@ pub struct Device<'a> {
 
 impl Device<'_> {
     pub fn init() -> Result<(), anyhow::Error> {
-        if let Some(_) = DEVICE.get() {
+        if DEVICE.get().is_some() {
             panic!("Device already initialized.");
         }
 
@@ -460,7 +460,7 @@ impl Device<'_> {
             .transpose()?;
 
         // Setup RTC
-        let rtc = drivers::rtc::PCF8563::new(MutexI2C::new(&i2c));
+        let rtc = drivers::rtc::PCF8563::new(MutexI2C::new(i2c));
 
         // Setup battery fuel gauge
         cfg_if::cfg_if! {
@@ -468,13 +468,13 @@ impl Device<'_> {
                 let mut fuel_gauge = drivers::max17048::MAX17048::new(MutexI2C::new(&i2c));
                 let _ = fuel_gauge.set_alert_soc_change(true); // fuel gauge won't work without a battery
             } else if #[cfg(feature = "has_bq27427")] {
-                let fuel_gauge = drivers::bq27427::BQ27427::new(MutexI2C::new(&i2c));
+                let fuel_gauge = drivers::bq27427::BQ27427::new(MutexI2C::new(i2c));
 
                 // Fuel gauge requires configuration, which could block for multiple seconds. Run it in another thread,
                 // with a new instance of the driver. Scary, but fine, because the driver has no state
                 // and the I2C bus is protected by a mutex.
                 // This would be easier if everything were async, most of the blocking is just waiting to poll...
-                let i2c_2 = MutexI2C::new(&i2c);
+                let i2c_2 = MutexI2C::new(i2c);
                 std::thread::Builder::new()
                     .name("battery_setup".to_string())
                     .stack_size(2 * 1024)
@@ -496,7 +496,7 @@ impl Device<'_> {
         let pin_batt_chg = PinDriver::input(pin_batt_chg)?;
 
         // Setup IMU
-        let mut imu = drivers::imu::LSM6DS3TRC::new(MutexI2C::new(&i2c));
+        let mut imu = drivers::imu::LSM6DS3TRC::new(MutexI2C::new(i2c));
         imu.init().context("IMU init")?;
 
         // Ensure fpga power has stabilized.
@@ -506,7 +506,7 @@ impl Device<'_> {
         // Setup DAC (requires fpga_power on)
         log::info!("Initializing DAC");
         let dac_reset = PinDriver::output(pin_dac_reset)?;
-        let mut dac = drivers::dac::TLV320DAC3101::new(dac_reset, MutexI2C::new(&i2c));
+        let mut dac = drivers::dac::TLV320DAC3101::new(dac_reset, MutexI2C::new(i2c));
         dac.init().context("DAC init")?;
         dac.configure_interrupts().context("DAC interrupts")?;
         dac.set_power_down(0, true).context("DAC power down")?;

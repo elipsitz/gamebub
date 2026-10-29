@@ -1,7 +1,7 @@
 use esp_idf_svc::hal::task::notification::{Notification, Notifier};
 use esp_idf_svc::sys::{self as esp_idf_sys, EspError};
 use std::{
-    io::{ErrorKind, Read, Write},
+    io::{Read, Write},
     num::NonZero,
     sync::{Arc, Mutex},
     time::Duration,
@@ -36,7 +36,7 @@ impl CdcStream {
                 &mut num,
             )
         };
-        EspError::convert(result).map_err(|e| std::io::Error::new(ErrorKind::Other, e))?;
+        EspError::convert(result).map_err(std::io::Error::other)?;
         Ok(num)
     }
 }
@@ -54,7 +54,7 @@ impl Read for CdcStream {
                     &mut num,
                 )
             };
-            EspError::convert(result).map_err(|e| std::io::Error::new(ErrorKind::Other, e))?;
+            EspError::convert(result).map_err(std::io::Error::other)?;
             read += num;
 
             if read == buf.len() {
@@ -86,7 +86,7 @@ impl Write for CdcStream {
                 self.timeout.as_millis() as u32,
             )
         };
-        EspError::convert(result).map_err(|e| std::io::Error::new(ErrorKind::Other, e))
+        EspError::convert(result).map_err(std::io::Error::other)
     }
 }
 

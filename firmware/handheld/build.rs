@@ -13,7 +13,7 @@ fn main() {
     // Get git commit hash
     println!("cargo:rerun-if-changed=../../.git/HEAD");
     let output = Command::new("git")
-        .args(&["rev-parse", "HEAD"])
+        .args(["rev-parse", "HEAD"])
         .output()
         .expect("git command failed");
     let commit_hash = str::from_utf8(&output.stdout)

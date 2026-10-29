@@ -134,10 +134,10 @@ impl Datetime {
         let month_lookup = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
         let mut days = (self.days as u64) - 1;
         days += month_lookup[(self.months - 1) as usize];
-        if self.months > 2 && ((self.years % 4) == 0) {
+        if self.months > 2 && self.years.is_multiple_of(4) {
             days += 1;
         }
-        days += ((self.years as u64) * 365) + ((self.years as u64 + 3) / 4);
+        days += ((self.years as u64) * 365) + (self.years as u64).div_ceil(4);
         timestamp += days * 86400;
 
         Some(timestamp)
@@ -157,7 +157,7 @@ impl Datetime {
         dt.minutes = ((second / 60) % 60) as u8;
         dt.hours = (second / 3600) as u8;
         dt.years = ((day * 4) / 1461) as u16;
-        day -= (((dt.years as u32) * 1461) + 3) / 4;
+        day -= ((dt.years as u32) * 1461).div_ceil(4);
 
         if (dt.years % 4) == 0 {
             day += if day > 59 { 1 } else { 0 }

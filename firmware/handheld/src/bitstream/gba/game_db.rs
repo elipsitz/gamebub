@@ -14,7 +14,7 @@ macro_rules! config {
 }
 
 /// The game database.
-static DATABASE: &[(&'static [u8; 4], EmulatedCartridgeConfig)] = &[
+static DATABASE: &[(&[u8; 4], EmulatedCartridgeConfig)] = &[
     // Pokemon Sapphire
     (b"AXPJ", config!(Flash128K, has_rtc)),
     (b"AXPE", config!(Flash128K, has_rtc)),
@@ -81,5 +81,5 @@ pub fn lookup(key: &[u8; 4]) -> Option<EmulatedCartridgeConfig> {
     DATABASE
         .iter()
         .find(|(&code, _)| *key == code)
-        .map(|(_, config)| config.clone())
+        .map(|(_, config)| *config)
 }

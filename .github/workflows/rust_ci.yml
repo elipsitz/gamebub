@@ -20,11 +20,11 @@ jobs:
       matrix:
         action:
           - command: build
-            args: --release
+            args: --features=rev4 --release
           - command: fmt
             args: --all -- --check --color always
           - command: clippy
-            args: --all-targets --all-features --workspace -- -D warnings
+            args: --features=rev4 --all-targets --workspace -- -D warnings
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -14,7 +14,7 @@ macro_rules! config {
 }
 
 /// The game database.
-static DATABASE: &[(&'static [u8; 4], EmulatedCartridgeConfig)] = &[
+static DATABASE: &[(&'static [u8], EmulatedCartridgeConfig)] = &[
     // Pokemon Sapphire
     (b"AXPJ", config!(Flash128K, has_rtc)),
     (b"AXPE", config!(Flash128K, has_rtc)),
@@ -75,12 +75,17 @@ static DATABASE: &[(&'static [u8; 4], EmulatedCartridgeConfig)] = &[
     (b"2GBP", config!(Sram, has_rumble)),
     // Apotris
     (b"2ATE", config!(Sram, has_rumble)),
+    // EverDrive auto-detection prefixes
+    (b"1", config!(EepromAuto)),
+    (b"2", config!(Sram)),
+    (b"3", config!(Flash64K)),
+    (b"4", config!(Flash128K)),
 ];
 
 pub fn lookup(key: &[u8; 4]) -> Option<EmulatedCartridgeConfig> {
     DATABASE
         .iter()
-        .find(|(&code, _)| *key == code)
+        .find(|(code, _)| key.starts_with(code))
         .map(|(_, config)| config.clone())
 }
 
@@ -113,5 +118,16 @@ mod tests {
         assert!(!twogbp.has_accel);
         assert!(!twogbp.has_gyro);
         assert!(!twogbp.has_solar);
+    }
+
+    #[test]
+    fn test_unknown_flash_128k() {
+        let unknown = lookup("4444".as_bytes().try_into().unwrap()).unwrap();
+        assert_eq!(unknown.save_type, SaveType::Flash128K);
+        assert!(!unknown.has_rumble);
+        assert!(!unknown.has_rtc);
+        assert!(!unknown.has_accel);
+        assert!(!unknown.has_gyro);
+        assert!(!unknown.has_solar);
     }
 }

@@ -11,6 +11,7 @@ use time::OffsetDateTime;
 
 use super::UiState;
 
+#[allow(clippy::module_inception)]
 mod settings {
     use crate::kvs::{keys, KvsKey};
     use crate::ui::state::ScreenId;
@@ -350,6 +351,7 @@ enum SettingsAction {
 
 /// Helper function used by the UI to be able to correctly modify individual datetime components.
 pub fn settings_datetime_add(source: SettingDatetime, delta: SettingDatetime) -> SettingDatetime {
+    #[allow(clippy::manual_clamp)]
     fn inner(
         source: &SettingDatetime,
         delta: SettingDatetime,

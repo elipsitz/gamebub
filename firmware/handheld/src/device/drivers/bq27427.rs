@@ -109,6 +109,7 @@ mod control_status {
 }
 
 #[derive(Debug, Error)]
+#[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[error("i2c error")]
     I2cError,

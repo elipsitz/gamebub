@@ -49,6 +49,7 @@ pub type SpiDataDriver<'a> =
 mod xilinx;
 
 #[derive(Debug, Error)]
+#[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[error("gpio error")]
     PinError,
@@ -126,6 +127,7 @@ where
     }
 
     /// Program the FPGA with a new bitstream.
+    #[allow(clippy::unnecessary_unwrap)]
     pub fn program(
         &mut self,
         bitstream: &mut dyn Read,

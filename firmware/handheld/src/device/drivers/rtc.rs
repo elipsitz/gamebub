@@ -143,6 +143,7 @@ impl Datetime {
         Some(timestamp)
     }
 
+    #[allow(clippy::field_reassign_with_default)]
     pub fn from_timestamp(ts: u64) -> Option<Self> {
         if ts < TIMESTAMP_2000 {
             return None;

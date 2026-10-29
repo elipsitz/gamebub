@@ -74,6 +74,7 @@ pub struct Device<'a> {
     >,
 
     /// FPGA driver
+    #[allow(clippy::type_complexity)]
     pub fpga: drivers::fpga::Fpga<
         'a,
         PinDriver<'a, AnyInputPin, Input>,

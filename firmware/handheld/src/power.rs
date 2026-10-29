@@ -44,6 +44,7 @@ impl PowerManager {
         });
     }
 
+    #[allow(clippy::needless_range_loop)]
     fn update(&mut self) {
         let mut device = Device::lock();
         let battery_level = device.fuel_gauge.get_battery_level().ok();

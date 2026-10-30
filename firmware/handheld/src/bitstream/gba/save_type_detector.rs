@@ -1,4 +1,4 @@
-use super::SaveType;
+use gamebub_lib::bitstream::gba::SaveType;
 
 /// Helper struct to auto-detect save file types from a ROM file (streaming)
 pub struct SaveTypeDetector {

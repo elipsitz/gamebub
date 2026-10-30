@@ -48,6 +48,8 @@ embassy = [
 ]
 
 [dependencies]
+gamebub-lib = { path = "../lib" }
+
 log = { version = "0.4", default-features = false }
 esp-idf-svc = { version = "0.50.0", default-features = false }
 anyhow = "1.0.79"

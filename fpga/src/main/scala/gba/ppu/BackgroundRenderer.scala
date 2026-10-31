@@ -111,6 +111,18 @@ class BackgroundRenderer extends Module {
         layer(i).cycle := layer(i).cycle + 1.U
       }
     }
+    when (io.tick === 0.U) {
+      // Start scanline, copy affXLine from affX
+      for (i <- 0 until 2) {
+        when (io.bgControl(i + 2).mosaic && mosaicCounter =/= 0.U) {
+          affX(i) := affXMosaic(i)
+          affY(i) := affYMosaic(i)
+        } .otherwise {
+          affX(i) := affXLine(i)
+          affY(i) := affYLine(i)
+        }
+      }
+    }
     when (io.tick === 1005.U) {
       // Begin HBlank
       for (i <- 0 until 4) {

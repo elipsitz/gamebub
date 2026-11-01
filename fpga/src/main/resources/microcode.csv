@@ -1,7 +1,7 @@
 Label,Comment,Encoding,PcNext,IME,RegRead1Sel,RegRead2Sel,RegWriteSel,RegOp,IncOp,IncReg,AluOp,AluSelA,AluSelB,AluFlagSet,MemEn,MemWr,MemAddrSel,MicroBranch,NextState
 NOP,,00000000,-,=,-,-,-,None,-,-,-,-,-,No,-,-,-,Fetch,-
 _INVALID,,,Same,=,-,-,-,None,No,-,-,-,-,No,No,-,-,Jump,_INVALID
-HALT,,01110110,Same,=,-,-,-,None,No,-,-,-,-,No,No,-,-,Jump,HALT
+HALT,keep reading the next opcode (PC not incremented),01110110,Same,=,-,-,-,None,No,PC,-,-,-,No,Yes,No,Incrementer,Jump,HALT
 STOP,,00010000,IncOut,=,-,-,-,None,Inc,PC,-,-,-,No,No,-,-,Next,-
 #STOP_loop,,,Same,=,-,-,-,None,No,-,-,-,-,No,No,-,-,Jump,#STOP_loop
 "LD r, (HL)",,01???110,Same,=,-,-,Reg8Dest,WriteMem,No,HL,-,-,-,No,Yes,No,Incrementer,Jump,NOP

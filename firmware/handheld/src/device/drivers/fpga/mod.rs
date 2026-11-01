@@ -25,6 +25,8 @@ pub const REG_INFO_VIDEO_DEPTH: u32 = 0xF100_0104;
 pub const REG_CTRL_IRQ_ENABLE: u32 = 0xF100_1000;
 pub const REG_CTRL_IRQ_PENDING: u32 = 0xF100_1004;
 pub const REG_CTRL_BUTTON_FORCE: u32 = 0xF100_1008;
+/// Video filter: bit 0 darkens the video, bit 1 enables overscaling.
+pub const REG_CTRL_VIDEO_FILTER: u32 = 0xF100_1018;
 pub const REG_CTRL_DOCK: u32 = 0xF100_100C;
 pub const REG_CTRL_FOCUS: u32 = 0xF100_1010;
 pub const REG_CTRL_VIBRATE: u32 = 0xF100_1014;

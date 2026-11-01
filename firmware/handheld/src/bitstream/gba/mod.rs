@@ -360,7 +360,8 @@ impl CoreHandler for Gba {
             file.seek(std::io::SeekFrom::Start(0)).map_err(|_| "I/O")?;
             let rom_header = RomHeader::parse(rom_header);
             if self.emu_cart_config.is_none() {
-                self.emu_cart_config = game_db::lookup(&rom_header.game_code);
+                self.emu_cart_config = game_db::lookup(&rom_header.game_code)
+                    .or_else(|| game_db::lookup_by_code_convention(&rom_header.game_code));
             }
             self.rom_header = Some(rom_header);
         } else if id == FILE_SAVE {

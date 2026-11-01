@@ -77,6 +77,22 @@ static DATABASE: &[(&'static [u8; 4], EmulatedCartridgeConfig)] = &[
     (b"2ATE", config!(Sram, has_rumble)),
 ];
 
+/// Determine the save type from the first character of the game code, as
+/// used by homebrew (a convention introduced by the EverDrive GBA):
+/// '1' = EEPROM, '2' = SRAM, '3' = Flash 64K, '4' = Flash 128K.
+///
+/// Commercial games always start with a letter, so this doesn't affect them.
+pub fn lookup_by_code_convention(key: &[u8; 4]) -> Option<EmulatedCartridgeConfig> {
+    let save_type = match key[0] {
+        b'1' => SaveType::EepromAuto,
+        b'2' => SaveType::Sram,
+        b'3' => SaveType::Flash64K,
+        b'4' => SaveType::Flash128K,
+        _ => return None,
+    };
+    Some(EmulatedCartridgeConfig::from_save_type(save_type))
+}
+
 pub fn lookup(key: &[u8; 4]) -> Option<EmulatedCartridgeConfig> {
     DATABASE
         .iter()

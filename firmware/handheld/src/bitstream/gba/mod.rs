@@ -520,8 +520,8 @@ impl CoreHandler for Gba {
             let rtc_state = RtcState::from_fpga(rtc_lo, rtc_hi);
             let timestamp = device.get_datetime().unix_timestamp();
 
-            file.write(&rtc_state.to_disk()).map_err(|_| "I/O")?;
-            file.write(&(timestamp as u64).to_le_bytes())
+            file.write_all(&rtc_state.to_disk()).map_err(|_| "I/O")?;
+            file.write_all(&(timestamp as u64).to_le_bytes())
                 .map_err(|_| "I/O")?;
             log::info!("Wrote RTC state: {:?}", rtc_state);
         }

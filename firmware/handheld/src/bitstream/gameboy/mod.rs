@@ -337,9 +337,9 @@ impl CoreHandler for Gameboy {
             let rtc_latched = RtcState::from_fpga(device.fpga.read_u32(REG_RTC_LATCHED).unwrap());
             let timestamp = device.get_datetime().unix_timestamp() as u64;
 
-            file.write(&rtc_state.to_disk()).map_err(|_| "I/O")?;
-            file.write(&rtc_latched.to_disk()).map_err(|_| "I/O")?;
-            file.write(&timestamp.to_le_bytes()).map_err(|_| "I/O")?;
+            file.write_all(&rtc_state.to_disk()).map_err(|_| "I/O")?;
+            file.write_all(&rtc_latched.to_disk()).map_err(|_| "I/O")?;
+            file.write_all(&timestamp.to_le_bytes()).map_err(|_| "I/O")?;
             log::info!("Wrote RTC state: {:?}", rtc_state);
         }
         Ok(())

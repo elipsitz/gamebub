@@ -544,9 +544,18 @@ impl CoreManager {
                 None => panic!("Missing path for required file {}", info.label),
             };
 
-            log::info!("Load file {} from {}", info.label, path.display());
+            let mut load_path = path.clone();
+            if !info.read_only && !load_path.exists() {
+                // Recover from an interrupted save, if possible.
+                let backup = backup_path(&load_path);
+                if backup.is_file() {
+                    log::warn!("Loading backup file {}", backup.display());
+                    load_path = backup;
+                }
+            }
+            log::info!("Load file {} from {}", info.label, load_path.display());
 
-            let file = File::open(&path);
+            let file = File::open(&load_path);
             self.selected_files[i] = Some(path);
             let mut file = match file {
                 Ok(file) => file,
@@ -705,7 +714,10 @@ impl CoreManager {
                 file_size = override_size;
             }
 
-            let mut file = File::create(path)
+            // Write to a temporary file first, so that the previous save is
+            // kept intact if writing fails or is interrupted.
+            let temp_path = temp_path(&path);
+            let mut file = File::create(&temp_path)
                 .map_err(|_| FailedSaveFile(info.label.to_string(), "Open failed".to_string()))?;
             let mut scratch = crate::bitstream::SCRATCH.take().expect("scratch buffer");
             let buf = scratch.deref_mut();
@@ -723,7 +735,7 @@ impl CoreManager {
                 let _ = Device::lock()
                     .fpga
                     .spi_read(max_clock, command, address, data);
-                file.write(data).map_err(|_| {
+                file.write_all(data).map_err(|_| {
                     FailedSaveFile(info.label.to_string(), "Write failed".to_string())
                 })?;
                 address += to_read as u32;
@@ -745,6 +757,12 @@ impl CoreManager {
                     .on_after_file_save(info.id, &mut file)
                     .map_err(|e| FailedSaveFile(info.label.to_string(), e))?;
             }
+            file.sync_all()
+                .map_err(|_| FailedSaveFile(info.label.to_string(), "Sync failed".to_string()))?;
+            drop(file);
+
+            replace_file(&temp_path, &path)
+                .map_err(|_| FailedSaveFile(info.label.to_string(), "Rename failed".to_string()))?;
         }
         Ok(())
     }
@@ -891,4 +909,37 @@ impl CoreManager {
 
         Ok(())
     }
+}
+
+/// Append a suffix to a file name (`Game.sav` -> `Game.sav.bak`).
+fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    match path.file_name() {
+        Some(name) => {
+            let mut name = name.to_os_string();
+            name.push(suffix);
+            path.with_file_name(name)
+        }
+        None => PathBuf::new(),
+    }
+}
+
+/// Path of the previous version of a save file.
+fn backup_path(path: &Path) -> PathBuf {
+    with_suffix(path, ".bak")
+}
+
+/// Path of a save file while it's being written.
+fn temp_path(path: &Path) -> PathBuf {
+    with_suffix(path, ".tmp")
+}
+
+/// Replace `path` with `new`, keeping the previous version as a backup.
+fn replace_file(new: &Path, path: &Path) -> std::io::Result<()> {
+    if path.exists() {
+        let backup = backup_path(path);
+        // FAT can't rename over an existing file.
+        let _ = std::fs::remove_file(&backup);
+        std::fs::rename(path, &backup)?;
+    }
+    std::fs::rename(new, path)
 }

@@ -82,6 +82,16 @@ export component CoreList {
                 }
             }
 
+            // The list can't scroll to the focused item until it has been laid
+            // out, so do it after the first frame.
+            Timer {
+                interval: 1ms;
+                triggered => {
+                    i-list.ensure-focus-visible();
+                    self.running = false;
+                }
+            }
+
             HorizontalLayout {
                 alignment: space-between;
 

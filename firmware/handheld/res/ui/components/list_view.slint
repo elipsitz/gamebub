@@ -33,6 +33,10 @@ export component ListViewBase inherits Rectangle {
         bring-into-view(focus-item);
     }
 
+    public function ensure-focus-visible() {
+        bring-into-view(focus-item);
+    }
+
     pure function first-visible-item() -> int {
         return min(root.num-items - 1, max(0, round(-area.viewport-y / root.item-height)));
     }

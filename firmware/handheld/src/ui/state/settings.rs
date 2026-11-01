@@ -112,6 +112,11 @@ mod settings {
                 key: &keys::DMG_COLOR_PALETTE,
                 choices: &["Grayscale", "DMG Green", "GB Pocket"],
             },
+            Entry::List {
+                name: "Tilt Sensitivity",
+                key: &keys::TILT_SENSITIVITY,
+                choices: &["Lowest", "Low", "Normal", "High"],
+            },
         ],
     };
 
@@ -134,6 +139,11 @@ mod settings {
             Entry::Checkbox {
                 name: "Warn about missing BIOS",
                 key: &keys::GBA_BIOS_WARNING,
+            },
+            Entry::List {
+                name: "Tilt Sensitivity",
+                key: &keys::TILT_SENSITIVITY,
+                choices: &["Lowest", "Low", "Normal", "High"],
             },
         ],
     };

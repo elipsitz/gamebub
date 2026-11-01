@@ -86,3 +86,13 @@ fn heatshrink_decompress_stream(file: File) -> impl Read {
 pub fn program_boot() {
     program_fpga(&crate::util::get_system_file_path("boot.bit.hs"));
 }
+
+/// Scale factor applied to accelerometer readings for tilt games.
+pub fn tilt_sensitivity() -> f32 {
+    match crate::kvs::keys::TILT_SENSITIVITY.get().unwrap_or(2) {
+        0 => 0.25,
+        1 => 0.5,
+        3 => 1.5,
+        _ => 1.0,
+    }
+}

@@ -321,8 +321,9 @@ impl Bitstream for Gba {
         let has_accel = self.emu_cart_config.as_ref().map_or(false, |h| h.has_accel);
         if has_accel {
             let accel_sample = device.imu.read_accel().unwrap();
-            let accel_x = ((0x3A0 as f32) + ((0x1D0 as f32) * -accel_sample.x)) as u16;
-            let accel_y = ((0x3A0 as f32) + ((0x1D0 as f32) * -accel_sample.y)) as u16;
+            let scale = 0x1D0 as f32 * super::tilt_sensitivity();
+            let accel_x = ((0x3A0 as f32) + (scale * -accel_sample.x)).clamp(0.0, 4095.0) as u16;
+            let accel_y = ((0x3A0 as f32) + (scale * -accel_sample.y)).clamp(0.0, 4095.0) as u16;
             device
                 .fpga
                 .write_u32(REG_IMU_ACCEL_X, accel_x as u32)

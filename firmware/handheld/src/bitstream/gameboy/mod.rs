@@ -207,8 +207,9 @@ impl Bitstream for Gameboy {
         let mut device = Device::lock();
         let sample = device.imu.read_accel().unwrap();
         // Invert X and Y
-        let accel_x = ((0x81D0 as f32) + ((0x70 as f32) * -sample.x)) as u16;
-        let accel_y = ((0x81D0 as f32) + ((0x70 as f32) * -sample.y)) as u16;
+        let scale = 0x70 as f32 * super::tilt_sensitivity();
+        let accel_x = ((0x81D0 as f32) + (scale * -sample.x)) as u16;
+        let accel_y = ((0x81D0 as f32) + (scale * -sample.y)) as u16;
         device
             .fpga
             .write_u32(REG_IMU_ACCEL_X, accel_x as u32)

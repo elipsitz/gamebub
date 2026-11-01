@@ -213,7 +213,9 @@ impl Gba {
             let setting = kvs::keys::GBA_COLOR_PROFILE.get().unwrap() as usize;
             corrections.get(setting).unwrap_or(&&IDENTITY)
         };
-        correction.configure(device, COLOR_CORRECTION_BASE)?;
+        correction
+            .with_color_temperature()
+            .configure(device, COLOR_CORRECTION_BASE)?;
 
         Ok(())
     }

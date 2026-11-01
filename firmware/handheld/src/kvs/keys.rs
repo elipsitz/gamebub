@@ -51,6 +51,9 @@ pub static LAST_CORE: KvsKey<String> = KvsKey::new("last-core");
 /// Whether docked controllers should have A/B and X/Y swapped.
 pub static DOCK_SWAP_ABXY: KvsKey<bool> = KvsKey::new_with_default("dock-swap-abxy", false);
 
+/// Game color temperature (0: default, 1: warm, 2: warmer, 3: cool).
+pub static GAME_COLOR_TEMPERATURE: KvsKey<i32> = KvsKey::new_with_default("color-temp", 0);
+
 pub fn flush_all() {
     SETUP_STAGE.flush();
     UPTIME.flush();
@@ -69,4 +72,5 @@ pub fn flush_all() {
     GBA_BIOS_WARNING.flush();
     LAST_CORE.flush();
     DOCK_SWAP_ABXY.flush();
+    GAME_COLOR_TEMPERATURE.flush();
 }

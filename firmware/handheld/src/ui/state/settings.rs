@@ -80,6 +80,11 @@ mod settings {
                 key: &keys::STARTUP_ACTION,
                 choices: &["Main Menu", "Run Cartridge"],
             },
+            Entry::List {
+                name: "Game Color Temperature",
+                key: &keys::GAME_COLOR_TEMPERATURE,
+                choices: &["Default", "Warm", "Warmer", "Cool"],
+            },
         ],
     };
 

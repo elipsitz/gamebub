@@ -100,7 +100,9 @@ impl Gameboy {
                 corrections.get(setting).unwrap_or(&&IDENTITY)
             }
         };
-        correction.configure(device, COLOR_CORRECTION_BASE)?;
+        correction
+            .with_color_temperature()
+            .configure(device, COLOR_CORRECTION_BASE)?;
 
         // DMG palettes
         if is_dmg {

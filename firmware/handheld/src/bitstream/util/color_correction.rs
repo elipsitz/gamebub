@@ -22,6 +22,24 @@ impl ColorCorrection {
         correction.in_gamma += delta;
         correction
     }
+
+    /// Apply the user's game color temperature setting.
+    pub fn with_color_temperature(&self) -> ColorCorrection {
+        // Red, green, and blue gains (linear).
+        let gains: [f32; 3] = match crate::kvs::keys::GAME_COLOR_TEMPERATURE.get().unwrap_or(0) {
+            1 => [1.0, 0.95, 0.85],
+            2 => [1.0, 0.90, 0.74],
+            3 => [0.90, 0.95, 1.0],
+            _ => return self.clone(),
+        };
+        let mut correction = self.clone();
+        for (row, gain) in correction.matrix.chunks_mut(3).zip(gains) {
+            for x in row {
+                *x *= gain;
+            }
+        }
+        correction
+    }
 }
 
 #[allow(unused)]

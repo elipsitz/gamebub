@@ -119,6 +119,9 @@ class GameBoyPlayer extends Module {
     val regJustSentData = Reg(UInt(16.W))
 
     val handshake = VecInit(Seq(0x494E, 0x544E, 0x4E45, 0x4F44).map(_.U(16.W)))
+    // Consecutive bad transfers in the active state before giving up (~2 seconds).
+    val maxActiveErrors = 127
+    val regActiveErrors = RegInit(0.U(log2Ceil(maxActiveErrors + 1).W))
     val doReset = WireDefault(false.B)
 
     // Checksum after handshake phase
@@ -204,14 +207,23 @@ class GameBoyPlayer extends Module {
         }
         is (CommState.Active) {
           // Do rumble transfer
-          when (checksumBad) {
-            logger.warn("Checksum mismatch")
+          regSerialData := 0x30000003.U
+          when (regSerialData(31, 16) === handshake(0)) {
+            // The game has restarted communications (e.g. after a soft reset).
+            logger.warn("Handshake restarted")
             doReset := true.B
-          } .elsewhen (regSerialData(31, 28) =/= 0x4.U) {
-            doReset := true.B
+          } .elsewhen (checksumBad || regSerialData(31, 28) =/= 0x4.U) {
+            // Ignore occasional bad transfers (e.g. while the game is busy and
+            // not servicing serial interrupts), rather than dropping the
+            // connection, which games only establish once at startup.
+            logger.warn("Bad rumble transfer")
+            regActiveErrors := regActiveErrors + 1.U
+            when (regActiveErrors === maxActiveErrors.U) {
+              doReset := true.B
+            }
           } .otherwise {
             // Handle rumble payload.
-            regSerialData := 0x30000003.U
+            regActiveErrors := 0.U
             val payload = regSerialData(11, 4)
             val controllers = payload.asTypeOf(Vec(4, UInt(2.W)))
             logger.info(cf"Rumble(0)=${controllers(0)}")
@@ -233,6 +245,7 @@ class GameBoyPlayer extends Module {
       logger.warn("Comm failure, reset")
       regState := CommState.Handshake
       regHandshakeCounter := 0.U
+      regActiveErrors := 0.U
       regRumble := false.B
     }
   }

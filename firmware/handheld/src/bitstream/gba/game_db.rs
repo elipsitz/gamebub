@@ -75,6 +75,8 @@ static DATABASE: &[(&'static [u8; 4], EmulatedCartridgeConfig)] = &[
     (b"2GBP", config!(Sram, has_rumble)),
     // Apotris
     (b"2ATE", config!(Sram, has_rumble)),
+    // Shantae Advance: Risky Revolution (FRAM, but its code has EEPROM library strings)
+    (b"CSAE", config!(Sram)),
 ];
 
 pub fn lookup(key: &[u8; 4]) -> Option<EmulatedCartridgeConfig> {

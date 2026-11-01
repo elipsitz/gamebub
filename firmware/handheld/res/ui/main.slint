@@ -148,6 +148,8 @@ export component MainWindow inherits Window {
                 Global.home-pressed = false;
             }
             if (event.text == "Power" || event.text == "p") {
+                // The popup takes focus, so we won't see Home being released.
+                Global.home-pressed = false;
                 power-menu.show();
             }
             accept

@@ -41,6 +41,13 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::log::set_target_level("gpio", log::LevelFilter::Warn).unwrap();
     crash_handler::setup();
 
+    // Reset the USB OTG peripheral, which isn't reset by a software restart
+    // (e.g. after a firmware update from the DFU app), so that it doesn't
+    // start in whatever state the previous app left it in.
+    unsafe {
+        esp_idf_svc::sys::periph_module_reset(esp_idf_svc::sys::periph_module_t_PERIPH_USB_MODULE)
+    };
+
     if let Err(e) = usb::configure_usb(usb::UsbMode::ConsoleAndVendor) {
         log::error!("USB setup failed: {:?}", e);
     }

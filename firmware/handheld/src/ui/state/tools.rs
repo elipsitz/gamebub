@@ -14,7 +14,23 @@ impl UiState {
         let backend = root.global::<Backend>();
 
         backend.on_tools_start_usb_drive(move || {
-            usb::configure_usb(usb::UsbMode::ConsoleAndMassStorage).expect("USB setup failed");
+            if let Err(e) = usb::configure_usb(usb::UsbMode::ConsoleAndMassStorage) {
+                // This has been seen to fail right after a firmware update.
+                // Reset the USB stack and try once more before giving up.
+                log::error!("USB drive setup failed ({e}), retrying");
+                let retry = usb::configure_usb(usb::UsbMode::SerialJtag).and_then(|_| {
+                    std::thread::sleep(std::time::Duration::from_millis(250));
+                    usb::configure_usb(usb::UsbMode::ConsoleAndMassStorage)
+                });
+                if let Err(e) = retry {
+                    log::error!("USB drive setup failed again: {e}");
+                    crate::ui::send(crate::ui::Message::Notification(
+                        crate::ui::Notification::new_alert(
+                            "USB setup failed:\nplease reboot and try again".into(),
+                        ),
+                    ));
+                }
+            }
         });
         backend.on_tools_end_usb_drive(move || {
             usb::configure_usb(usb::UsbMode::ConsoleOnly).expect("USB teardown failed");

@@ -226,6 +226,12 @@ impl InputManager {
             } else {
                 0
             };
+            // Optionally, X and Y also act as Select and Start.
+            let fpga_buttons = if crate::kvs::keys::XY_SELECT_START.get().unwrap_or(false) {
+                fpga_buttons | ((state.btn_y as u32) << 1) | ((state.btn_x as u32) << 0)
+            } else {
+                fpga_buttons
+            };
             let _ = Device::lock()
                 .fpga
                 .write_u32(fpga::REG_CTRL_BUTTON_FORCE, fpga_buttons);

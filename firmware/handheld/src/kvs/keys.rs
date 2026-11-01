@@ -51,6 +51,9 @@ pub static LAST_CORE: KvsKey<String> = KvsKey::new("last-core");
 /// Whether docked controllers should have A/B and X/Y swapped.
 pub static DOCK_SWAP_ABXY: KvsKey<bool> = KvsKey::new_with_default("dock-swap-abxy", false);
 
+/// Map the X/Y buttons to Select/Start in games.
+pub static XY_SELECT_START: KvsKey<bool> = KvsKey::new_with_default("xy-select-start", false);
+
 pub fn flush_all() {
     SETUP_STAGE.flush();
     UPTIME.flush();
@@ -69,4 +72,5 @@ pub fn flush_all() {
     GBA_BIOS_WARNING.flush();
     LAST_CORE.flush();
     DOCK_SWAP_ABXY.flush();
+    XY_SELECT_START.flush();
 }

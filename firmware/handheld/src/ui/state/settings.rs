@@ -80,6 +80,10 @@ mod settings {
                 key: &keys::STARTUP_ACTION,
                 choices: &["Main Menu", "Run Cartridge"],
             },
+            Entry::Checkbox {
+                name: "X/Y as Select/Start",
+                key: &keys::XY_SELECT_START,
+            },
         ],
     };
 

@@ -277,6 +277,10 @@ class Control(config: Gameboy.Configuration) extends Module {
     } .elsewhen (ime) {
       // Note: IME is unset in microcode
       state := microcode.stateForLabel("#Interrupt").U
+    } .elsewhen (halted && justFetched) {
+      // HALT bug: HALT was executed with IME=0 and an interrupt already pending,
+      // so the CPU doesn't halt, and the next byte is read twice (PC isn't incremented).
+      state := microcode.stateForLabel("#HALT_bug").U
     } .elsewhen (halted) {
       // Go to the next instruction without doing an interrupt.
       state := microcode.stateForLabel("NOP").U

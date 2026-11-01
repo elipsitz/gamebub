@@ -190,6 +190,14 @@ class HandheldGba extends Module with Core {
     bridge.io.dest <> sdramArbiter.io.initiator(0)
   }
 
+  // Debug log of physical cartridge ROM reads in the header region (and the EEPROM range), read
+  // back by the firmware to diagnose cartridges that fail the BIOS logo check.
+  val cartLogDepth = 2048
+  val cartLog = SyncReadMem(cartLogDepth, UInt(64.W))
+  val cartLogIndex = RegInit(0.U(log2Ceil(cartLogDepth).W))
+  val cartLogCount = RegInit(0.U(32.W))
+  val cartLogEntry = cartLog.read(cartLogIndex)
+
   val registerInterface = Wire(new MemoryInterface(addressWidth = 16, dataWidth = 32))
   val biosInterface = Wire(new MemoryInterface(addressWidth = 14, dataWidth = 32)) // 16 KiB
   val colorCorrectInterface = Wire(new MemoryInterface(addressWidth = 16, dataWidth = 16))
@@ -227,6 +235,11 @@ class HandheldGba extends Module with Core {
         0x1004 -> RegisterMap.Entry.rw(statRegCycles),
 
         0x2000 -> RegisterMap.Entry.w(regCoreResetOnce),
+
+        0x3000 -> RegisterMap.Entry.w(cartLogIndex),
+        0x3004 -> RegisterMap.Entry.r(cartLogEntry(31, 0)),
+        0x3008 -> RegisterMap.Entry.r(cartLogEntry(63, 32)),
+        0x300C -> RegisterMap.Entry.r(cartLogCount),
       )
     )
   }
@@ -417,6 +430,30 @@ class HandheldGba extends Module with Core {
     emuCart.io.interface.reqWrite := DontCare
     emuCart.io.interface.reqAddress := DontCare
     emuCart.io.interface.reqEnd := false.B
+  }
+
+  {
+    import chisel3.util.experimental.BoringUtils
+    val done = BoringUtils.bore(gba.cart.isRequestDone)
+    val data = BoringUtils.bore(gba.cart.regReadData)
+    val address = BoringUtils.bore(gba.cart.currentAddress)
+    val isWrite = BoringUtils.bore(gba.cart.currentIsWrite)
+    val cycle = RegInit(0.U(24.W))
+    when (gba.io.enable) {
+      cycle := cycle + 1.U
+    }
+    val capture = gba.io.enable && done && !isWrite && !configRegEmuCart.enabled &&
+      (address(23, 7) === 0.U || address(23))
+    when (capture) {
+      when (cartLogCount < cartLogDepth.U) {
+        cartLog.write(cartLogCount(log2Ceil(cartLogDepth) - 1, 0), Cat(cycle, address, data))
+      }
+      cartLogCount := cartLogCount + 1.U
+    }
+    when (regCoreReset || regCoreResetOnce) {
+      cartLogCount := 0.U
+      cycle := 0.U
+    }
   }
 
   // Video output

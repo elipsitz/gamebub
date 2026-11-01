@@ -39,6 +39,13 @@ const REG_RTC_LO: u32 = 0x0000_0200;
 const REG_RTC_HI: u32 = 0x0000_0204;
 const REG_STAT_STALLS: u32 = 0x0000_1000;
 const REG_STAT_CYCLES: u32 = 0x0000_1004;
+const REG_CART_LOG_INDEX: u32 = 0x0000_3000;
+const REG_CART_LOG_LO: u32 = 0x0000_3004;
+const REG_CART_LOG_HI: u32 = 0x0000_3008;
+const REG_CART_LOG_COUNT: u32 = 0x0000_300C;
+const CART_LOG_DEPTH: u32 = 2048;
+const CART_LOG_PATH: &str = "/sdcard/cartlog.bin";
+const CART_LOG_ENABLE_PATH: &str = "/sdcard/cartlog.enable";
 const COLOR_CORRECTION_BASE: u32 = 0x5000_0000;
 
 const FILE_ROM: u16 = 0;
@@ -181,6 +188,28 @@ impl Gba {
             rom_file_size: 0,
             save_type_detector: SaveTypeDetector::new(),
             rtc_state: None,
+        }
+    }
+
+    /// Debug: write the FPGA's log of physical cartridge header reads to the SD card (only if
+    /// /sdcard/cartlog.enable exists). Decode it with fpga/scripts/parse_cart_log.py.
+    ///
+    /// Format: u32 total read count, then per entry two u32s (little endian):
+    /// lo = data | (halfword address & 0xFFFF) << 16, hi = (address >> 16) | cycle << 8.
+    fn dump_cart_log(device: &mut Device) {
+        let count = device.fpga.read_u32(REG_CART_LOG_COUNT).unwrap_or(0);
+        let mut out = Vec::with_capacity(4 + 8 * count.min(CART_LOG_DEPTH) as usize);
+        out.extend_from_slice(&count.to_le_bytes());
+        for i in 0..count.min(CART_LOG_DEPTH) {
+            let _ = device.fpga.write_u32(REG_CART_LOG_INDEX, i);
+            let lo = device.fpga.read_u32(REG_CART_LOG_LO).unwrap_or(0);
+            let hi = device.fpga.read_u32(REG_CART_LOG_HI).unwrap_or(0);
+            out.extend_from_slice(&lo.to_le_bytes());
+            out.extend_from_slice(&hi.to_le_bytes());
+        }
+        match std::fs::write(CART_LOG_PATH, &out) {
+            Ok(()) => log::info!("Wrote cartridge read log ({} reads)", count),
+            Err(e) => log::warn!("Failed to write cartridge read log: {:?}", e),
         }
     }
 
@@ -556,6 +585,11 @@ impl CoreHandler for Gba {
             let _ = device.fpga.write_u32(REG_STAT_STALLS, 0);
             let rate = (num_cycles as f32) / ((num_cycles as f32) + (num_stalls as f32));
             log::info!("Run rate: {}%", rate * 100.0);
+
+            // ROM files always have a config by now, so this is a physical cartridge.
+            if self.emu_cart_config.is_none() && Path::new(CART_LOG_ENABLE_PATH).exists() {
+                Self::dump_cart_log(&mut device);
+            }
         }
     }
 }

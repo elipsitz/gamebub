@@ -227,7 +227,7 @@ impl Gba {
                 CoreFile {
                     id: FILE_CONFIG_OVERRIDE,
                     label: "Config Override".try_into().unwrap(),
-                    extensions: ["json".try_into().unwrap()].into_iter().collect(),
+                    extensions: [".json".try_into().unwrap()].into_iter().collect(),
                     filename: None,
 
                     optional: true,

@@ -45,6 +45,8 @@ pub struct TLV320DAC3101<PinReset: OutputPin, I2C: I2c> {
     /// * 0: core focus
     /// * 1: dock state
     power_down: [bool; 2],
+    /// MICBIAS bits of page 1 register 46, which also holds the power down bit.
+    micbias: u8,
 }
 
 impl<PinReset, I2C> TLV320DAC3101<PinReset, I2C>
@@ -61,6 +63,7 @@ where
             volume: 0,
             mute: true,
             power_down: [false; 2],
+            micbias: 0,
         }
     }
 
@@ -247,8 +250,15 @@ where
 
     pub fn set_power_down(&mut self, index: usize, power_down: bool) -> Result<(), Error> {
         self.power_down[index] = power_down;
+        self.write_micbias_power_reg()
+    }
+
+    /// Write page 1 register 46, which holds both the device power down bit
+    /// and the MICBIAS configuration (used for headphone detection).
+    fn write_micbias_power_reg(&mut self) -> Result<(), Error> {
         let power_down = self.power_down.iter().any(|&x| x);
-        self.write_reg(1, 0x2E, if power_down { 0x80 } else { 0x00 })
+        let value = if power_down { 0x80 } else { 0x00 } | self.micbias;
+        self.write_reg(1, 0x2E, value)
     }
 
     /// Enable or disable headphone detection.
@@ -258,8 +268,8 @@ where
         let value = ((enabled as u8) << 7) | (debounce_headset << 2) | debounce_button;
         self.write_reg(0, 0x43, value)?;
 
-        let micbias = if enabled { 0xB } else { 0x0 };
-        self.write_reg(1, 0x2E, micbias)?;
+        self.micbias = if enabled { 0xB } else { 0x0 };
+        self.write_micbias_power_reg()?;
 
         Ok(())
     }

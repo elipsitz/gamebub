@@ -82,6 +82,20 @@ fn main() -> anyhow::Result<()> {
 
     // Setup workers.
     worker::start();
+
+    // Check for headphones once headset detection has settled (it's
+    // debounced), in case the detection interrupt fired before the interrupt
+    // handler was ready.
+    std::thread::Builder::new()
+        .name("Headphones".to_string())
+        .stack_size(4 * 1024)
+        .spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if let Ok(detected) = Device::lock().dac.get_headphones_detected() {
+                worker::send(worker::Message::HeadphoneState(detected));
+            }
+        })
+        .unwrap();
     power::PowerManager::start(&mut device);
 
     // Initial programming FPGA

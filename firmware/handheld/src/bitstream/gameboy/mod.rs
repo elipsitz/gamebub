@@ -84,7 +84,7 @@ impl Gameboy {
         let config = 0 | (((!is_dmg) as u32) << 0);
         device.fpga.write_u32(REG_EMU_CONFIG, config)?;
 
-        device.imu.disable_accel().unwrap();
+        device.imu.disable_accel().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
 
         // Disable vblank IRQ
         device.fpga.disable_interrupt(fpga::Irq::ModuleVblank)?;
@@ -205,7 +205,10 @@ impl Gameboy {
 impl Bitstream for Gameboy {
     fn on_vblank_irq(&mut self) {
         let mut device = Device::lock();
-        let sample = device.imu.read_accel().unwrap();
+        // A failed read (e.g. a transient I2C error) just skips this frame's sample.
+        let Ok(sample) = device.imu.read_accel() else {
+            return;
+        };
         // Invert X and Y
         let accel_x = ((0x81D0 as f32) + ((0x70 as f32) * -sample.x)) as u16;
         let accel_y = ((0x81D0 as f32) + ((0x70 as f32) * -sample.y)) as u16;
@@ -307,7 +310,7 @@ impl CoreHandler for Gameboy {
             // If IMU is needed, enable vsync IRQ
             if rom_header.has_sensor {
                 // XXX: if other components need IMU too, switch to a global lease system
-                device.imu.enable_accel().unwrap();
+                device.imu.enable_accel().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
                 device
                     .fpga
                     .enable_interrupt(fpga::Irq::ModuleVblank)
@@ -352,9 +355,9 @@ impl CoreHandler for Gameboy {
         // Enable/disable IMU as needed
         if self.rom_header.as_ref().map_or(false, |h| h.has_sensor) {
             if paused {
-                device.imu.disable_accel().unwrap();
+                device.imu.disable_accel().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
             } else {
-                device.imu.enable_accel().unwrap();
+                device.imu.enable_accel().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
             }
         }
 

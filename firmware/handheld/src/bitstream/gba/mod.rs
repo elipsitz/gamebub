@@ -194,8 +194,8 @@ impl Gba {
 
     /// Prepare to load a new cartridge (physical or emulated)
     fn initialize(&mut self, device: &mut Device) -> Result<(), GbaError> {
-        device.imu.disable_gyro().unwrap();
-        device.imu.disable_accel().unwrap();
+        device.imu.disable_gyro().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
+        device.imu.disable_accel().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
 
         // Other config
         device.fpga.write_u32(
@@ -311,16 +311,17 @@ impl Bitstream for Gba {
         // Read IMU
         let has_gyro = self.emu_cart_config.as_ref().map_or(false, |h| h.has_gyro);
         if has_gyro {
-            let gyro_sample = device.imu.read_gyro().unwrap();
-            let gyro_z = ((0x700 as f32) - gyro_sample.z) as u16;
-            device
-                .fpga
-                .write_u32(REG_IMU_GYRO_Z, gyro_z as u32)
-                .unwrap();
+            // A failed read (e.g. a transient I2C error) just skips this frame's sample.
+            if let Ok(gyro_sample) = device.imu.read_gyro() {
+                let gyro_z = ((0x700 as f32) - gyro_sample.z) as u16;
+                let _ = device.fpga.write_u32(REG_IMU_GYRO_Z, gyro_z as u32);
+            }
         }
         let has_accel = self.emu_cart_config.as_ref().map_or(false, |h| h.has_accel);
         if has_accel {
-            let accel_sample = device.imu.read_accel().unwrap();
+            let Ok(accel_sample) = device.imu.read_accel() else {
+                return;
+            };
             let accel_x = ((0x3A0 as f32) + ((0x1D0 as f32) * -accel_sample.x)) as u16;
             let accel_y = ((0x3A0 as f32) + ((0x1D0 as f32) * -accel_sample.y)) as u16;
             device
@@ -468,11 +469,11 @@ impl CoreHandler for Gba {
             // If IMU is needed, enable vsync IRQ
             let mut need_vblank = false;
             if emu_cart_config.has_gyro {
-                device.imu.enable_gyro().unwrap();
+                device.imu.enable_gyro().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
                 need_vblank = true;
             }
             if emu_cart_config.has_accel {
-                device.imu.enable_accel().unwrap();
+                device.imu.enable_accel().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
                 need_vblank = true;
             }
             if need_vblank {
@@ -535,16 +536,16 @@ impl CoreHandler for Gba {
         // Enable/disable IMU as needed
         if self.emu_cart_config.as_ref().map_or(false, |h| h.has_gyro) {
             if paused {
-                device.imu.disable_gyro().unwrap();
+                device.imu.disable_gyro().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
             } else {
-                device.imu.enable_gyro().unwrap();
+                device.imu.enable_gyro().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
             }
         }
         if self.emu_cart_config.as_ref().map_or(false, |h| h.has_accel) {
             if paused {
-                device.imu.disable_accel().unwrap();
+                device.imu.disable_accel().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
             } else {
-                device.imu.enable_accel().unwrap();
+                device.imu.enable_accel().unwrap_or_else(|e| log::warn!("IMU error: {:?}", e));
             }
         }
 

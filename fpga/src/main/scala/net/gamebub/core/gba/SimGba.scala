@@ -2,7 +2,7 @@ package net.gamebub.core.gba
 
 import chisel3._
 import _root_.circt.stage.ChiselStage
-import chisel3.util.SRAM
+import chisel3.util.{Cat, SRAM}
 import gba._
 import gba.apu.ApuOutput
 import gba.cart.emu.{EmulatedCartridge, VerificationEmulatedCartridge}
@@ -17,8 +17,13 @@ object SimGba extends App {
     case None =>
   }
 
+  // SIM_PHYSICAL_CART=1: serve ROM like a physical cartridge (see SimGba).
+  val physicalCart = sys.env.get("SIM_PHYSICAL_CART").contains("1")
+  // SIM_SLOW_CART=1 (with SIM_PHYSICAL_CART): model a slower cartridge ROM.
+  val slowCart = sys.env.get("SIM_SLOW_CART").contains("1")
+
   ChiselStage.emitSystemVerilogFile(
-    new SimGba,
+    new SimGba(physicalCart, slowCart),
     args,
     firtoolOpts = Array(
       "--preserve-aggregate=1d-vec",
@@ -30,7 +35,17 @@ object SimGba extends App {
   )
 }
 
-class SimGba extends Module {
+/**
+ * @param physicalCart Run the cartridge controller in physical-cartridge mode (isEmulated = false),
+ *   serving ROM data from the bus signals like a real Game Pak: A0-15 latched when nCS falls and
+ *   incremented on each nRD rising edge, A16-23 live. Backup memory (including EEPROM, which is
+ *   in the top half of the address space) and GPIO still come from the emulated cartridge.
+ * @param slowCart (physical mode) ROM data is only valid once nRD has been low for 2 cycles, or
+ *   1 cycle if the data bus was already an input (no bus turnaround); otherwise it's garbage.
+ *
+ * Based on the simulation model in github.com/ghogan42/gamebub.
+ */
+class SimGba(physicalCart: Boolean = false, slowCart: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val enable = Input(Bool())
     val ppu = Output(new PpuOutput)
@@ -121,6 +136,72 @@ class SimGba extends Module {
   }
   emuCart.io.rom.dataRead := cartRom.read(romBusyAddress, romBusy && romCounter === 1.U)
 
+
+  if (physicalCart) {
+    val cart = gba.io.cartridge
+    val prevNCS = RegNext(cart.nCS, true.B)
+    val prevNRD = RegNext(cart.nRD, true.B)
+    val regLatchedLow = RegInit(0.U(16.W))
+    val nextLatchedLow = WireDefault(regLatchedLow)
+    val regHigh = RegInit(0.U(8.W))
+    val nextHigh = WireDefault(regHigh)
+    when (!cart.nCS && prevNCS) {
+      nextLatchedLow := cart.ADLoOut
+      nextHigh := cart.AHiOut
+    } .elsewhen (!cart.nCS && cart.nRD && !prevNRD) {
+      nextLatchedLow := regLatchedLow + 1.U
+    }
+    regLatchedLow := nextLatchedLow
+    regHigh := nextHigh
+    val regLatchedAddress = Cat(regHigh, regLatchedLow)
+
+    // A16-23 are live address lines: they must not change while nCS is low.
+    when (io.enable && !cart.nCS && !prevNCS && cart.AHiDir && cart.AHiOut =/= regHigh) {
+      printf(cf"CARTBUS: A16-23 changed during ROM access (latched=${regHigh}%x now=${cart.AHiOut}%x)\n")
+    }
+
+    // Read ahead so the data for the latched address is valid the cycle nRD goes low (async ROM).
+    val romData = cartRom.read(Cat(nextHigh, nextLatchedLow), true.B)
+    val gpioAddress = regLatchedAddress >= (0xC2 / 2).U && regLatchedAddress <= (0xC8 / 2).U
+    // EEPROM (for ROMs up to 16 MiB) is selected by the top address bit.
+    val eepromAddress = regHigh(7)
+    cart.isEmulated := false.B
+    // Beyond the end of the ROM, the bus floats to the latched (halfword) address.
+    val outOfBounds = Cat(regLatchedAddress, 0.U(1.W)) > io.emuCartRomSize
+    val romCartData = Mux(outOfBounds, regLatchedLow, romData)
+    val romBusData = WireDefault(romCartData)
+    if (slowCart) {
+      val regReadLowCycles = RegInit(0.U(4.W))
+      regReadLowCycles := Mux(cart.nRD, 0.U, Mux(regReadLowCycles.andR, regReadLowCycles, regReadLowCycles + 1.U))
+      val prevDataDirOut = RegNext(cart.ADLoDir, true.B)
+      val readLowCycles = regReadLowCycles + 1.U  // including this cycle
+      val valid = readLowCycles >= 2.U || !prevDataDirOut
+      when (!valid) {
+        romBusData := ~romCartData
+      }
+    }
+    when (!cart.nCS && !cart.nRD && !gpioAddress && !eepromAddress) {
+      cart.ADLoIn := romBusData
+    }
+
+    // Check ROM data completed by the cartridge controller against the ROM image.
+    {
+      import chisel3.util.experimental.BoringUtils
+      val done = BoringUtils.bore(gba.cart.isRequestDone)
+      val data = BoringUtils.bore(gba.cart.regReadData)
+      val address = BoringUtils.bore(gba.cart.currentAddress)
+      val isWrite = BoringUtils.bore(gba.cart.currentIsWrite)
+      val check = io.enable && done && !isWrite && Cat(address, 0.U(1.W)) <= io.emuCartRomSize &&
+        address(23, 7) =/= 0.U && !address(23)
+      val expected = cartRom.read(address, check)
+      val regCheck = RegNext(check, false.B)
+      val regData = RegNext(data)
+      val regAddress = RegNext(address)
+      when (regCheck && expected =/= regData) {
+        printf(cf"ROMCHECK mismatch addr=0x${regAddress << 1}%x got=0x${regData}%x expected=0x${expected}%x\n")
+      }
+    }
+  }
 
   // Link
   gba.io.link.in.si := false.B

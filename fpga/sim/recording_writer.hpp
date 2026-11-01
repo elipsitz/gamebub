@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <unistd.h>
 #include <filesystem>
 #include <vector>

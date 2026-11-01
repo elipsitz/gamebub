@@ -26,6 +26,10 @@ Simulator::Simulator(std::filesystem::path rom_path, std::filesystem::path bios_
         std::cerr << "ERROR: incorrect bios size: " << bios.size() << " (expected 256 or 2304)\n";
         std::exit(1);
     }
+    // The model is determined by the boot ROM.
+    is_cgb = bios.size() == 2304;
+    top->io_isCgb = is_cgb;
+
     // Note: assumes little-endian
     memcpy(
         &this->top->rootp->SimGameboy__DOT__bootRom_ext__DOT__Memory,
@@ -80,7 +84,10 @@ void Simulator::simulate_cycles(uint64_t num_cycles)
         if (top->io_dataAccess_enable) {
             std::vector<uint8_t>& mem = top->io_dataAccess_selectRom ? cart->rom : cart->ram;
 
-            if (top->io_dataAccess_write) {
+            if (mem.empty()) {
+                // No cartridge RAM.
+                top->io_dataAccess_dataRead = 0xFF;
+            } else if (top->io_dataAccess_write) {
                 mem[top->io_dataAccess_address % mem.size()] = top->io_dataAccess_dataWrite;
             } else {
                 top->io_dataAccess_dataRead = mem[top->io_dataAccess_address % mem.size()];
@@ -105,7 +112,13 @@ void Simulator::stepFramebuffer()
     framebuffer.update(top->io_ppu_hblank, top->io_ppu_vblank);
 
     if (top->io_ppu_valid && top->io_ppu_lcdEnable) {
-      framebuffer.pushBGR(top->io_ppu_pixel);
+      if (is_cgb) {
+        framebuffer.pushBGR(top->io_ppu_pixel);
+      } else {
+        // DMG: grayscale shades (color 0 is dark, 3 is bright).
+        uint16_t shade = top->io_ppu_dmgColor_color * 10 + 1;
+        framebuffer.pushBGR(shade | (shade << 5) | (shade << 10));
+      }
     }
 
     // Blank the screen if the LCD is disabled.

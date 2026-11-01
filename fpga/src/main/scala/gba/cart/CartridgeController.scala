@@ -280,6 +280,14 @@ class CartridgeController extends Module {
         io.cartridge.AHiOut := currentAddress(23, 16)
         io.cartridge.AHiDir := true.B
       }
+      // A16-23 are live address lines that the cartridge ROM uses directly: while nCS is still
+      // low, keep driving them for the whole cycle (like a GBA). Releasing them for half a cycle
+      // let them float during the access, which can corrupt reads from slower or larger ROMs.
+      // (Once nCS is high, the second half of the cycle can carry the next request's address.)
+      when (!io.cartridge.isEmulated && reg_nCS === 0.U) {
+        io.cartridge.AHiOut := currentAddress(23, 16)
+        io.cartridge.AHiDir := true.B
+      }
 
 
       when (io.cartridge.isEmulated && doLatchReadData) {

@@ -66,22 +66,22 @@ class Cpu(config: Gameboy.Configuration) extends Module {
   val memDataRead = WireDefault(io.memDataIn)
 
   // Interrupts
-  // XXX: IE is 8 bits actually? and IF top 3 bits are 1?
-  val regIE = RegInit(0.U(5.W))
+  // IE stores all 8 bits (only the low 5 are used); IF's top 3 bits always read as 1.
+  val regIE = RegInit(0.U(8.W))
   val regIF = RegInit(0.U(5.W))
   when (io.clocker.enable) {
     regIF := regIF | io.interruptRequest.asUInt
     when (io.memEnable) {
       when (io.memWrite) {
-        when (io.memAddress === Cpu.REG_IE.U) { regIE := io.memDataOut(4, 0) }
+        when (io.memAddress === Cpu.REG_IE.U) { regIE := io.memDataOut }
         when (io.memAddress === Cpu.REG_IF.U) { regIF := io.memDataOut(4, 0) | io.interruptRequest.asUInt }
       }.otherwise {
         when (io.memAddress === Cpu.REG_IE.U) { memDataRead := regIE }
-        when (io.memAddress === Cpu.REG_IF.U) { memDataRead := regIF }
+        when (io.memAddress === Cpu.REG_IF.U) { memDataRead := Cat("b111".U(3.W), regIF) }
       }
     }
   }
-  val pendingInterruptField = regIE & regIF
+  val pendingInterruptField = regIE(4, 0) & regIF
   val pendingInterruptIndex = PriorityEncoder(pendingInterruptField)
   control.io.interruptsPending := pendingInterruptField =/= 0.U
   when (io.clocker.phiPulse && controlSignals.pcNext === PcNext.interrupt) {

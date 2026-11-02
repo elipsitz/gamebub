@@ -80,6 +80,11 @@ mod settings {
                 key: &keys::STARTUP_ACTION,
                 choices: &["Main Menu", "Run Cartridge"],
             },
+            Entry::List {
+                name: "Auto Power Off",
+                key: &keys::AUTO_POWER_OFF,
+                choices: &["Never", "3 min", "5 min", "10 min", "30 min"],
+            },
         ],
     };
 

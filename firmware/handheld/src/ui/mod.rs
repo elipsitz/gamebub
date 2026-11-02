@@ -6,7 +6,9 @@ mod state;
 use ::slint::platform::WindowAdapter;
 use ::slint::{ComponentHandle, WindowSize};
 pub use buttons::{Button, ButtonEvent, ButtonMap};
+use std::cell::Cell;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, OnceLock};
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc, sync::mpsc::Receiver, time::Instant};
@@ -23,7 +25,27 @@ pub use state::notifications::Notification;
 
 use self::{slint::Argb1555, slint::MinimalSoftwareWindow, state::UiState};
 
-const IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+/// How often to check for inactivity.
+const IDLE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
+/// Inactivity time before powering off during initial setup.
+const IDLE_TIMEOUT_SETUP: Duration = Duration::from_secs(60);
+/// How long before an automatic power off to warn the user.
+const AUTO_POWER_OFF_WARNING: Duration = Duration::from_secs(20);
+
+/// Whether a game is running and has input focus (i.e. not paused in a menu).
+pub static GAME_FOCUSED: AtomicBool = AtomicBool::new(false);
+
+/// Get the automatic power off timeout, if enabled.
+fn auto_power_off_timeout() -> Option<Duration> {
+    let minutes = match crate::kvs::keys::AUTO_POWER_OFF.get().unwrap_or(0) {
+        1 => 3,
+        2 => 5,
+        3 => 10,
+        4 => 30,
+        _ => return None,
+    };
+    Some(Duration::from_secs(minutes * 60))
+}
 
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "rev1", feature = "rev2"))] {
@@ -124,6 +146,7 @@ pub struct UI {
     state: Rc<RefCell<UiState>>,
     button_event_detector: buttons::ButtonEventDetector,
     idle_timer: Timer,
+    last_input: Rc<Cell<Instant>>,
 }
 
 impl UI {
@@ -149,8 +172,37 @@ impl UI {
 
         // Set up the idle timer
         let idle_timer = Timer::default();
-        idle_timer.start(TimerMode::Repeated, IDLE_TIMEOUT, || {
-            worker::send(worker::Message::IdleTimerExpired);
+        let last_input = Rc::new(Cell::new(Instant::now()));
+        idle_timer.start(TimerMode::Repeated, IDLE_CHECK_INTERVAL, {
+            let last_input = last_input.clone();
+            let mut warned = false;
+            move || {
+                let idle = last_input.get().elapsed();
+                if idle < IDLE_CHECK_INTERVAL {
+                    warned = false;
+                }
+                if idle >= IDLE_TIMEOUT_SETUP {
+                    worker::send(worker::Message::IdleTimerExpired);
+                }
+
+                // Don't power off while a game is being played.
+                let Some(timeout) = auto_power_off_timeout() else {
+                    return;
+                };
+                if GAME_FOCUSED.load(Ordering::Relaxed) {
+                    return;
+                }
+                if idle >= timeout {
+                    log::warn!("Inactive for {}s, powering off", idle.as_secs());
+                    crate::core::CoreManager::lock().prepare_for_power_off();
+                    Device::lock().power_off();
+                } else if !warned && idle + AUTO_POWER_OFF_WARNING >= timeout {
+                    warned = true;
+                    send(Message::Notification(Notification::new_alert(
+                        "Powering off soon due to\ninactivity: press any button".into(),
+                    )));
+                }
+            }
         });
 
         let (sender, receiver) = mpsc::channel::<Message>();
@@ -180,6 +232,7 @@ impl UI {
             root,
             button_event_detector: buttons::ButtonEventDetector::new(),
             idle_timer,
+            last_input,
         };
         ui
     }
@@ -197,7 +250,7 @@ impl UI {
             }
             for button_event in self.button_event_detector.update(None) {
                 self.window.dispatch_event(button_event.into());
-                self.idle_timer.restart();
+                self.last_input.set(Instant::now());
             }
 
             ::slint::platform::update_timers_and_animations();
@@ -248,7 +301,7 @@ impl UI {
     fn dispatch_message(&mut self, message: Message) {
         match message {
             Message::Button(state) => {
-                self.idle_timer.restart();
+                self.last_input.set(Instant::now());
                 for button_event in self.button_event_detector.update(Some(state)) {
                     self.window.dispatch_event(button_event.into());
                 }

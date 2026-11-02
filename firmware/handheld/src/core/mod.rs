@@ -295,6 +295,7 @@ impl CoreManager {
     }
 
     fn reset_state(&mut self) {
+        ui::GAME_FOCUSED.store(false, std::sync::atomic::Ordering::Relaxed);
         self.core_info = None;
         self.core_handler = CoreHandlerImpl::None;
         self.core_settings = None;
@@ -377,6 +378,7 @@ impl CoreManager {
     }
 
     pub fn focus_changed(&mut self, has_focus: bool) {
+        ui::GAME_FOCUSED.store(has_focus, std::sync::atomic::Ordering::Relaxed);
         {
             let mut device = Device::lock();
             device.dac.set_power_down(0, !has_focus).expect("DAC power");

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 struct JoypadState {
     bool start;
     bool select;

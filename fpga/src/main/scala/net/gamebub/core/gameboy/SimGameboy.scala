@@ -24,6 +24,8 @@ object SimGameboy extends App {
 class SimGameboy extends Module {
   val io = IO(new Bundle {
     val clockConfig = new ClockConfig
+    /** Run as a Game Boy Color (otherwise original Game Boy) */
+    val isCgb = Input(Bool())
 
     val ppu = new PpuOutput
     val joypad = Input(new JoypadState)
@@ -40,7 +42,7 @@ class SimGameboy extends Module {
     optimizeForSimulation = true,
   )
   val gameboy = Module(new Gameboy(gameboyConfig))
-  gameboy.io.isCgb := true.B
+  gameboy.io.isCgb := io.isCgb
   io.clockConfig <> gameboy.io.clockConfig
   io.ppu <> gameboy.io.ppu
   io.joypad <> gameboy.io.joypad

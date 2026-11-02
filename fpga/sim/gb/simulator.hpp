@@ -35,6 +35,7 @@ private:
     uint64_t cycles = 0;
     VSimGameboy* top = nullptr;
     bool prev_lcd_enabled = false;
+    bool is_cgb = true;
     std::vector<int16_t> audioSampleBuffer;
     int audioTimer = 0;
 };

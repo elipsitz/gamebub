@@ -30,3 +30,12 @@ pub fn copy_file(from: &Path, to: &Path) -> std::io::Result<u64> {
     let mut writer = std::fs::File::create(to)?;
     Ok(std::io::copy(&mut reader, &mut writer)?)
 }
+
+/// Whether a file name ends with one of the extensions (including the dot), ignoring case.
+pub fn has_extension(name: &str, extensions: &[&str]) -> bool {
+    let name = name.as_bytes();
+    extensions.iter().any(|ext| {
+        let ext = ext.as_bytes();
+        name.len() >= ext.len() && name[name.len() - ext.len()..].eq_ignore_ascii_case(ext)
+    })
+}

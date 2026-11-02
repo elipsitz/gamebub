@@ -823,6 +823,7 @@ impl CoreManager {
             _ => panic!(),
         };
         let extensions = &self.core_info.as_ref().unwrap().files[file_index].extensions;
+        let extensions: Vec<&str> = extensions.iter().map(|e| e.as_str()).collect();
 
         let mut files = path
             .read_dir()?
@@ -834,7 +835,7 @@ impl CoreManager {
                 if name.starts_with(".") {
                     return None;
                 }
-                if kind.is_file() && !extensions.iter().any(|&e| name.ends_with(e.as_str())) {
+                if kind.is_file() && !crate::util::has_extension(name, &extensions) {
                     return None;
                 }
 

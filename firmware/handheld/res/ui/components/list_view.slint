@@ -26,6 +26,7 @@ export component ListViewBase inherits Rectangle {
             } else if (focus-item >= num-items) {
                 focus-item = num-items - 1;
             }
+            bring-into-view(focus-item);
             return;
         }
         root.unselect();

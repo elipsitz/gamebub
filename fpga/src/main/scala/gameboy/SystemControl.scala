@@ -76,21 +76,23 @@ class SystemControl(config: Gameboy.Configuration) extends Module {
 
       // 0xFF4D - KEY1 (CGB only): Prepare speed switch
       is (0x4D.U) {
-        when (regCgbMode) { regPrepareSpeedSwitch := io.dataWrite(0) }
+        when (io.cgbMode) { regPrepareSpeedSwitch := io.dataWrite(0) }
       }
 
       // FF70 - SVBK (CGB Mode only): WRAM bank
       is (0x70.U) {
-        when (regCgbMode) { regWramBank := io.dataWrite(2, 0) }
+        when (io.cgbMode) { regWramBank := io.dataWrite(2, 0) }
       }
 
       // FF4F - VBK (CGB Mode only): VRAM bank
       is (0x4F.U) {
-        when (regCgbMode) { regVramBank := io.dataWrite(0) }
+        when (io.cgbMode) { regVramBank := io.dataWrite(0) }
       }
     }
   }
-  when (regCgbMode) {
+  // CGB-only registers are only accessible in CGB mode (not on a DMG, and not
+  // in DMG compatibility mode after the boot ROM).
+  when (io.cgbMode) {
     io.valid := Seq(0x50, 0x4C, 0x70, 0x4F, 0x4D).map(io.address === _.U).reduce((a, b) => a || b)
   } .otherwise {
     io.valid := (io.address === 0x50.U)

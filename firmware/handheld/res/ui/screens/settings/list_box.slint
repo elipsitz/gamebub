@@ -5,8 +5,6 @@ export component ListBox {
     in property <[string]> choices;
     in property <bool> selected;
 
-    private property <length> item-height: i-area.viewport-height / choices.length;
-
     callback on-changed();
 
     HorizontalLayout {
@@ -18,19 +16,11 @@ export component ListBox {
             colorize: #333;
         }
 
-        i-area := Flickable {
-            viewport-y: -root.item-height * root.index;
-            viewport-height: i-items.min-height;
-            height: item-height;
-            width: i-items.min-width;
-
-            i-items := VerticalLayout {
-                width: self.min-width;
-                for choice[i] in root.choices: child-items := Text {
-                    text: choice;
-                    horizontal-alignment: right;
-                }
-            }
+        // Only the current choice is drawn: lists like Time Zone have dozens of choices, and
+        // the renderer has little memory.
+        Text {
+            text: root.choices[root.index];
+            horizontal-alignment: right;
         }
 
         Image {

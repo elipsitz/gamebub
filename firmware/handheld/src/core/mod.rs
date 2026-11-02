@@ -843,10 +843,10 @@ impl CoreManager {
             .take(FILE_LIST_MAX)
             .collect::<Vec<_>>();
         files.sort_unstable_by(|f1, f2| {
-            // Sort by name, with directories first.
-            let c1 = (f1.1.is_file(), f1.0.as_str());
-            let c2 = (f2.1.is_file(), f2.0.as_str());
-            c1.cmp(&c2)
+            // Directories first, then by name.
+            f1.1.is_file()
+                .cmp(&f2.1.is_file())
+                .then_with(|| file_name_cmp(&f1.0, &f2.0, f1.1.is_file()))
         });
         let files = files.into_iter().map(|f| (f.0, f.1.is_dir())).collect();
         Ok(files)
@@ -891,4 +891,21 @@ impl CoreManager {
 
         Ok(())
     }
+}
+
+/// Compare file names for display: case-insensitive, "natural" (so "Game 2" sorts before
+/// "Game 10"), and comparing names without their extensions first (so "Game.gba" sorts
+/// before "Game 2.gba").
+fn file_name_cmp(a: &str, b: &str, is_file: bool) -> std::cmp::Ordering {
+    let (a_folded, b_folded) = (a.to_lowercase(), b.to_lowercase());
+    let stem = |name: &str| -> String {
+        match name.rfind('.') {
+            Some(i) if is_file && i > 0 => name[..i].to_string(),
+            _ => name.to_string(),
+        }
+    };
+    use crate::util::natural_cmp;
+    natural_cmp(&stem(&a_folded), &stem(&b_folded))
+        .then_with(|| natural_cmp(&a_folded, &b_folded))
+        .then_with(|| a.cmp(b))
 }

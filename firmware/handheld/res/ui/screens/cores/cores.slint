@@ -9,7 +9,7 @@ import { CoreFileSelect } from "core_file_select.slint";
 import { CoreError } from "core_error.slint";
 
 export component CoresScreen inherits ScreenBase {
-    title: "Cores";
+    title: Backend.core-file-select-active ? "Select " + Backend.core-file-select-label : "Cores";
 
     in property <[CoreListEntry]> cores: Backend.core-list;
     private property <int> selected-core: Backend.core-selected-index;

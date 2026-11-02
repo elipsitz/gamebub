@@ -266,9 +266,9 @@ impl UI {
                     .set_repaint_buffer_type(RepaintBufferType::NewBuffer);
             }
             Message::EnterGame => {
-                self.root
-                    .global::<slint::Backend>()
-                    .set_core_is_loading(false);
+                let backend = self.root.global::<slint::Backend>();
+                backend.set_core_is_loading(false);
+                backend.set_core_file_select_active(false);
                 self.root.invoke_set_screen(slint::ScreenId::Game);
             }
             Message::CoreLoadProgress(progress) => {

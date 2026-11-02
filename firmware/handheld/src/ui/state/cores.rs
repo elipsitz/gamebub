@@ -84,7 +84,12 @@ impl UiState {
             state.cores_handle_file_select_selected(PathBuf::new(), "..");
         });
 
+        let state_ = state.clone();
         backend.on_core_file_select_cancel(move || {
+            let state = state_.borrow();
+            let root = state.root.unwrap();
+            root.invoke_set_title("Cores".into());
+            root.global::<Backend>().set_core_file_select_active(false);
             worker::send(worker::Message::CoreFileCancelled);
         });
     }
@@ -139,6 +144,7 @@ impl UiState {
         backend.set_core_file_select_list(slint::ModelRc::default());
         backend.set_core_file_select_index(-1);
         backend.set_core_file_select_is_loading(true);
+        backend.set_core_file_select_active(true);
         self.cores_file_select_update_path();
         backend.set_core_subscreen(CoreSubscreen::FileSelect);
     }
@@ -240,6 +246,7 @@ impl UiState {
         let root = self.root.unwrap();
         let backend = root.global::<Backend>();
         backend.set_core_error(error.into());
+        backend.set_core_file_select_active(false);
         backend.set_core_subscreen(CoreSubscreen::Error);
         root.invoke_set_screen(ScreenId::Cores);
     }

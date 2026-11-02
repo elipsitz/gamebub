@@ -230,8 +230,11 @@ impl UI {
                 Timer::single_shot(wakeup.saturating_duration_since(Instant::now()), || ());
             }
 
-            // Sleep until the next animation, timer, or event.
-            if !self.window.has_active_animations() {
+            // Sleep until the next animation, timer, or event. While animating, still check for
+            // messages (button presses arrive as messages) about once a frame.
+            if self.window.has_active_animations() {
+                pending_message = self.message_queue.recv_timeout(Duration::from_millis(16)).ok();
+            } else {
                 match ::slint::platform::duration_until_next_timer_update() {
                     Some(duration) => {
                         pending_message = self.message_queue.recv_timeout(duration).ok();

@@ -89,6 +89,12 @@ impl Gameboy {
         // Disable vblank IRQ
         device.fpga.disable_interrupt(fpga::Irq::ModuleVblank)?;
 
+        // Overscaling (requires FPGA support; ignored by older bitstreams).
+        let overscale = kvs::keys::GB_OVERSCALE.get().unwrap_or(false);
+        device
+            .fpga
+            .write_u32(fpga::REG_CTRL_VIDEO_FILTER, (overscale as u32) << 1)?;
+
         // Color correction
         let correction: &ColorCorrection = {
             use color_correction::presets::*;

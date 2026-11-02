@@ -428,6 +428,8 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     val docked = Bool()
   }))
   val controlVideoFilter = RegInit(0.U.asTypeOf(new Bundle {
+    /** Scale the core video one step larger than fits, cropping the top and bottom */
+    val overscale = Bool()
     val darken = Bool()
   }))
 
@@ -651,6 +653,49 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     val overlayInBounds = Wire(Bool())
     val videoOutput = ColorRGB(8, 8, 8).make(r = 0, g = 0, b = 0)
     val darkenVideo = XpmCdcSingle(clock, controlVideoFilter.darken)
+    val overscaleVideo = XpmCdcSingle(clock, controlVideoFilter.overscale)
+
+    /**
+     * Map an output pixel to a core framebuffer address, scaling the framebuffer
+     * by `scale` and centering it on the screen. If the scaled framebuffer is
+     * larger than the screen, it's cropped.
+     *
+     * @return (framebuffer address, whether the pixel is within the framebuffer)
+     */
+    def scaleFramebuffer(
+        x: UInt, y: UInt, delayX: Int, delayY: Int,
+        screenWidth: Int, screenHeight: Int, scale: Int, extraOffsetX: Int,
+    ): (UInt, Bool) = {
+      val offsetX = (screenWidth - (videoWidth * scale)) / 2 + extraOffsetX
+      val offsetY = (screenHeight - (videoHeight * scale)) / 2
+      val relX = x.zext - offsetX.S
+      val relY = y.zext - offsetY.S
+      val inBounds = relX >= 0.S && relX < (videoWidth * scale).S &&
+        relY >= 0.S && relY < (videoHeight * scale).S
+      val fbX = (relX + delayX.S).asUInt / scale.U
+      val fbY = (relY + delayY.S).asUInt / scale.U
+      ((fbY * videoWidth.U) + fbX, inBounds)
+    }
+
+    /** Select between normal and overscaled framebuffer mapping, if overscaling fits horizontally. */
+    def connectFramebufferScaling(
+        x: UInt, y: UInt, delayX: Int, delayY: Int,
+        screenWidth: Int, screenHeight: Int, extraOffsetX: Int,
+    ): Unit = {
+      val scale = (screenWidth / videoWidth).min(screenHeight / videoHeight)
+      val (address, inBounds) =
+        scaleFramebuffer(x, y, delayX, delayY, screenWidth, screenHeight, scale, extraOffsetX)
+      framebufferReadAddress := address
+      framebufferInBounds := inBounds
+      if (videoWidth * (scale + 1) <= screenWidth) {
+        val (bigAddress, bigInBounds) =
+          scaleFramebuffer(x, y, delayX, delayY, screenWidth, screenHeight, scale + 1, extraOffsetX)
+        when (overscaleVideo) {
+          framebufferReadAddress := bigAddress
+          framebufferInBounds := bigInBounds
+        }
+      }
+    }
     when (framebufferInBounds) {
       val color = framebufferColor.convertTo(videoOutput)
       when (darkenVideo) {
@@ -719,17 +764,9 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
       }
 
       // Scale and center framebuffer within output video.
-      val videoScale = (screenWidth / videoWidth).min(screenHeight / videoHeight)
-      val videoOffsetX = (screenWidth - (videoWidth * videoScale)) / 2
-      val videoOffsetY = (screenHeight - (videoHeight * videoScale)) / 2
       val framebufferReadDelay = 3 /* reading */ + videoFilterLatency
-      framebufferReadAddress :=
-        (((videoY - videoOffsetY.U) / videoScale.U) * videoWidth.U) +
-          ((videoX - videoOffsetX.U + framebufferReadDelay.U) / videoScale.U)
-      framebufferInBounds := videoX >= videoOffsetX.U &&
-        videoX < (videoOffsetX + (videoWidth * videoScale)).U &&
-        videoY >= videoOffsetY.U &&
-        videoY < (videoOffsetY + (videoHeight * videoScale)).U
+      connectFramebufferScaling(
+        videoX, videoY, framebufferReadDelay, 0, screenWidth, screenHeight, extraOffsetX = 0)
 
       // Scale overlay
       val overlayScale = (screenWidth / overlayWidth).min(screenHeight / overlayHeight)
@@ -763,20 +800,12 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
       framebufferIndex := dpiDriverIo.displayFrame
 
       // Scale and center framebuffer without output video.
-      val videoScale = (screenWidth / videoWidth).min(screenHeight / videoHeight)
-      val videoOffsetX = (screenWidth - (videoWidth * videoScale)) / 2 + revision.displayOffsetX
-      val videoOffsetY = (screenHeight - (videoHeight * videoScale)) / 2
       val framebufferReadDelay = 3 /* reading */ + videoFilterLatency
       val framebufferReadDelayX = if (revision.displayRotate) 0 else framebufferReadDelay
       val framebufferReadDelayY = if (revision.displayRotate) framebufferReadDelay else 0
-      framebufferReadAddress :=
-        (((dpiY - videoOffsetY.U + framebufferReadDelayY.U) / videoScale.U) * videoWidth.U) +
-          ((dpiX - videoOffsetX.U + framebufferReadDelayX.U) / videoScale.U)
-      framebufferInBounds :=
-        dpiX >= videoOffsetX.U &&
-        dpiX < (videoOffsetX + (videoWidth * videoScale)).U &&
-        dpiY >= videoOffsetY.U &&
-        dpiY < (videoOffsetY + (videoHeight * videoScale)).U
+      connectFramebufferScaling(
+        dpiX, dpiY, framebufferReadDelayX, framebufferReadDelayY,
+        screenWidth, screenHeight, extraOffsetX = revision.displayOffsetX)
 
       // Scale overlay
       val overlayScale = (screenWidth / overlayWidth).min(screenHeight / overlayHeight)

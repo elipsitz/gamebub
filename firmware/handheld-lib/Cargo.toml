@@ -1,0 +1,10 @@
+[package]
+name = "handheld-lib"
+version = "1.0.3"
+authors = ["Eli Lipsitz <eli.lipsitz@gmail.com>"]
+edition = "2021"
+resolver = "2"
+rust-version = "1.93"
+
+[dependencies]
+serde = { version = "1.0.197", features = ["derive"] }

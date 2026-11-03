@@ -19,12 +19,24 @@ jobs:
       fail-fast: false
       matrix:
         action:
+          - command: test
+            args: --release
+            workdir: firmware/handheld-lib
           - command: build
             args: --features=rev4 --release
+            workdir: firmware/handheld
           - command: fmt
             args: --all -- --check --color always
+            workdir: firmware/handheld-lib
+          - command: fmt
+            args: --all -- --check --color always
+            workdir: firmware/handheld
+          - command: clippy
+            args: --all-targets --workspace -- -D warnings -A clippy::identity_op
+            workdir: firmware/handheld-lib
           - command: clippy
             args: --features=rev4 --all-targets --workspace -- -D warnings -A clippy::identity_op
+            workdir: firmware/handheld
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,6 +44,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
         uses: esp-rs/xtensa-toolchain@v1.5
+        if: matrix.action.workdir != 'firmware/handheld-lib'
         with:
           default: true
           version: "1.93"
@@ -39,4 +52,4 @@ jobs:
           ldproxy: true
       - name: Run command
         run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
-        working-directory: firmware/handheld
+        working-directory: ${{ matrix.action.workdir }}

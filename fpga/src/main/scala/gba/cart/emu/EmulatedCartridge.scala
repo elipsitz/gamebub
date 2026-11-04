@@ -138,22 +138,28 @@ class EmulatedCartridge extends Module {
       regCartActive := false.B
     }
   }
+  // A real cartridge ROM ignores the address lines above its size, so the ROM repeats
+  // ("mirrors") past its end. Classic NES Series games check for this. Sizes that aren't a
+  // power of two are rounded up, like the address decoding of a real chip.
+  val romHalfwordsMinusOne = io.romSize(24, 1)
+  val romAddressMask = Seq(1, 2, 4, 8, 16).foldLeft(romHalfwordsMinusOne)((m, n) => m | (m >> n))
+  val romReqAddress = io.interface.reqAddress & romAddressMask
+
   when (io.interface.reqStart && io.interfaceEnable) {
     regCartActive := true.B
 
     when (io.interface.reqRom) {
       logger.debug(cf"ROM request start: addr=0x${io.rom.address << 1}%x peri=${romPeripheralSelected}")
       when (!romPeripheralSelected) {
-        // TODO handle out-of-bounds ROM request
         io.rom.enable := true.B
-        io.rom.address := io.interface.reqAddress
+        io.rom.address := romReqAddress
         regMemRomBusy := true.B
 
         when (!io.rom.ready) {
           logger.debug(cf" --> pending the ROM mem request")
           // Can't submit right now (probably due to aborted request).
           regMemRomPending := true.B
-          regMemRomPendingAddress := io.interface.reqAddress
+          regMemRomPendingAddress := romReqAddress
         }
       }
     } .otherwise {

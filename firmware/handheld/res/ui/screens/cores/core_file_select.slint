@@ -28,7 +28,12 @@ export component CoreFileSelect {
                 }
                 accept
             } else if (event.text == "b" && !event.repeat) {
-                Backend.core-file-select-up();
+                // At the top folder, B leaves the file browser.
+                if (Backend.core-file-select-path == "/") {
+                    on-cancel();
+                } else {
+                    Backend.core-file-select-up();
+                }
                 accept
             } else {
                 reject

@@ -12,3 +12,7 @@ struct replacement1 {
 
 // For esp_reset_reason_set_hint
 #include "esp_private/system_internal.h"
+
+// For wake stub functions
+#include "esp_sleep.h"
+#include "esp_wake_stub.h"

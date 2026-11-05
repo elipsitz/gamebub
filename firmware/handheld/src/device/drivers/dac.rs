@@ -251,6 +251,20 @@ where
         self.write_reg(1, 0x2E, if power_down { 0x80 } else { 0x00 })
     }
 
+    /// Prepare the DAC for deep sleep.
+    pub fn deinitialize(&mut self) {
+        let _ = self.configure_headphone_detection(false);
+        let _ = self.set_speakers_enabled(false);
+        let _ = self.set_headphones_enabled(false);
+        // Power down DAC channels
+        let _ = self.write_reg(0, 0x3F, 0x00);
+        // Power down clock dividers NDAC and MDAC
+        let _ = self.write_reg(0, 0x0B, 0x00);
+        let _ = self.write_reg(0, 0x0C, 0x00);
+        // Hold in reset
+        let _ = self.reset_hold();
+    }
+
     /// Enable or disable headphone detection.
     pub fn configure_headphone_detection(&mut self, enabled: bool) -> Result<(), Error> {
         let debounce_headset = 0b011u8; // 128ms

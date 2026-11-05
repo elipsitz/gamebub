@@ -81,6 +81,10 @@ mod settings {
                 key: &keys::STARTUP_ACTION,
                 choices: &["Main Menu", "Run Cartridge"],
             },
+            Entry::Checkbox {
+                name: "Require long press to power on (*)",
+                key: &keys::DEEP_SLEEP,
+            },
         ],
     };
 

@@ -1,7 +1,19 @@
+use arrayvec::ArrayVec;
+use esp_idf_svc::hal::gpio::Pin;
 use esp_idf_svc::hal::{
     gpio::{AnyIOPin, AnyInputPin, AnyOutputPin, IOPin, InputPin, OutputPin},
     peripherals::Peripherals,
 };
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rev1")] {
+        pub const PIN_POWER_SWITCH: i32 = 1;
+    } else if #[cfg(feature = "rev2")] {
+        pub const PIN_POWER_SWITCH: i32 = 15;
+    } else if #[cfg(any(feature = "rev3", feature = "rev4"))] {
+        pub const PIN_POWER_SWITCH: i32 = 8;
+    }
+}
 
 pub struct BoardPins {
     // Buttons
@@ -16,7 +28,7 @@ pub struct BoardPins {
     // Power and charging
     pub vbus_pgood: AnyIOPin,
     pub batt_chg: AnyInputPin,
-    #[expect(unused)]
+    #[allow(unused)]
     pub batt_charge_enable: Option<AnyOutputPin>,
 
     // LCD
@@ -65,8 +77,52 @@ pub struct BoardPins {
     pub cart_power: Option<AnyOutputPin>,
 }
 
+impl BoardPins {
+    /// Get the pin numbers of all lines connected connected to power domains unpowered
+    /// during deep sleep.
+    pub fn unpowered_pins(&self) -> ArrayVec<i32, 18> {
+        let mut pins = ArrayVec::new();
+        pins.push(self.fpga_init_b.pin());
+        pins.push(self.fpga_done.pin());
+        pins.push(self.fpga_program_b.pin());
+        pins.push(self.fpga_spi_cs.pin());
+        pins.push(self.fpga_spi_clk.pin());
+        pins.push(self.fpga_spi_d0.pin());
+        pins.push(self.fpga_spi_d1.pin());
+        pins.push(self.fpga_spi_d2.pin());
+        pins.push(self.fpga_spi_d3.pin());
+        pins.push(self.lcd_backlight.pin());
+        if let Some(p) = &self.lcd_reset {
+            pins.push(p.pin());
+        }
+        if let Some(p) = &self.lcd_cs {
+            pins.push(p.pin());
+        }
+        if let Some(p) = &self.lcd_dc {
+            pins.push(p.pin());
+        }
+        if let Some(p) = &self.lcd_enable {
+            pins.push(p.pin());
+        }
+        if let Some(p) = &self.lcd_spi_clk {
+            pins.push(p.pin());
+        }
+        if let Some(p) = &self.lcd_spi_d0 {
+            pins.push(p.pin());
+        }
+        if let Some(p) = &self.cart_switch {
+            pins.push(p.pin());
+        }
+        if let Some(p) = &self.cart_power {
+            pins.push(p.pin());
+        }
+        pins
+    }
+}
+
 pub struct Board {
     pub pins: BoardPins,
+    pub sleep_config: crate::device::deep_sleep::SleepConfig,
     pub i2c: esp_idf_svc::hal::i2c::I2C0,
     pub ledc: esp_idf_svc::hal::ledc::LEDC,
     pub spi2: esp_idf_svc::hal::spi::SPI2,
@@ -246,8 +302,16 @@ impl Board {
             }
         }
 
+        let sleep_config = crate::device::deep_sleep::SleepConfig {
+            led_pin: pins.led.pin(),
+            fpga_power_pin: pins.fpga_power.pin(),
+            dac_reset_pin: pins.dac_reset.pin(),
+            unpowered_pins: pins.unpowered_pins(),
+        };
+
         Self {
             pins,
+            sleep_config,
             i2c: peripherals.i2c0,
             ledc: peripherals.ledc,
             spi2: peripherals.spi2,

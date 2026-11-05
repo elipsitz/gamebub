@@ -12,7 +12,6 @@ use esp_idf_svc::hal::gpio::{
 use esp_idf_svc::hal::gpio::{AnyOutputPin, Output, PinDriver};
 use esp_idf_svc::hal::ledc::{LedcDriver, LedcTimerDriver};
 use esp_idf_svc::hal::peripheral::Peripheral;
-use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::hal::spi::{
     self, SpiDeviceDriver, SpiDriver, SpiDriverConfig, SpiSharedDeviceDriver, SpiSoftCsDeviceDriver,
 };
@@ -20,6 +19,7 @@ use esp_idf_svc::hal::units::{FromValueType, Hertz};
 use esp_idf_svc::hal::{i2c::*, ledc};
 
 pub mod board;
+pub mod deep_sleep;
 pub mod drivers;
 mod input;
 mod interrupt;
@@ -114,16 +114,18 @@ pub struct Device<'a> {
 
     /// Dock state
     pub docked: bool,
+
+    /// Deep sleep board configuration
+    pub sleep_config: deep_sleep::SleepConfig,
 }
 
 impl Device<'_> {
-    pub fn init() -> Result<(), anyhow::Error> {
+    pub fn init(board: board::Board) -> Result<(), anyhow::Error> {
         if DEVICE.get().is_some() {
             panic!("Device already initialized.");
         }
 
-        let peripherals = Peripherals::take()?;
-        let board = board::Board::new(peripherals);
+        let sleep_config = board.sleep_config.clone();
 
         // Status LED: active high
         let led = LedcDriver::new(
@@ -142,7 +144,6 @@ impl Device<'_> {
 
         // Mount sdcard to /sdcard
         let sdcard = drivers::sdcard::mount_sdcard(
-            "/sdcard",
             board.pins.sdio_clk,
             board.pins.sdio_cmd,
             board.pins.sdio_d0,
@@ -438,6 +439,7 @@ impl Device<'_> {
             imu,
             sdcard,
             docked: false,
+            sleep_config,
         };
         device.init_datetime();
         DEVICE
@@ -456,6 +458,11 @@ impl Device<'_> {
 
     pub fn lock() -> MutexGuard<'static, Device<'static>> {
         Device::get().lock().unwrap()
+    }
+
+    /// Called early after power-on to check that we should continue powering on.
+    pub fn confirm_power_on(board: &board::Board) {
+        deep_sleep::confirm_power_on(board);
     }
 
     /// Enable or disable FPGA power.
@@ -477,35 +484,40 @@ impl Device<'_> {
     pub fn power_off(&mut self) -> ! {
         log::info!("Powering off");
 
-        let _ = self.change_display_mode(DisplayMode::None);
+        self.prepare_for_power_off();
 
-        // Update uptime
-        let this_uptime =
-            Duration::from_micros(unsafe { esp_idf_svc::sys::esp_timer_get_time() as _ });
-        let new_uptime = kvs::keys::UPTIME.get().unwrap() + (this_uptime.as_secs() as u32);
-        kvs::keys::UPTIME.set(&new_uptime);
-        kvs::keys::flush_all();
+        if kvs::keys::DEEP_SLEEP.get().unwrap_or(false) {
+            // Prepare for extended deep sleep.
+            deep_sleep::enter(&self.sleep_config);
+        } else {
+            // Hold power button to power-off.
 
-        // Leave FPGA powered, but put it in program-reset mode.
-        // A steady load (FPGA quiescent current) helps to drain capacitors.
-        let _ = self.fpga.pin_program_b.set_low();
+            // Leave FPGA powered, but put it in program-reset mode.
+            // A steady load (FPGA quiescent current) helps to drain capacitors.
+            let _ = self.set_fpga_power(true);
+            let _ = self.fpga.pin_program_b.set_low();
 
-        // Hold down the power button until the device shuts off.
-        let _ = self.fpga_power.set_drive_strength(DriveStrength::I40mA);
-        let _ = self.button_power.set_drive_strength(DriveStrength::I40mA);
-        let _ = self.button_power.set_low();
+            // Hold down the power button until the device shuts off.
+            let _ = self.fpga_power.set_drive_strength(DriveStrength::I40mA);
+            let _ = self.button_power.set_drive_strength(DriveStrength::I40mA);
+            let _ = self.button_power.set_low();
+
+            unsafe {
+                // Enable pin hold during deep sleep.
+                esp_idf_svc::sys::gpio_hold_en(self.fpga_power.pin());
+                esp_idf_svc::sys::gpio_hold_en(self.fpga.pin_program_b.pin());
+                esp_idf_svc::sys::gpio_hold_en(self.button_power.pin());
+                esp_idf_svc::sys::gpio_deep_sleep_hold_en();
+
+                // Stay in deep sleep to maximize chances of holding power button down past brown-out.
+                esp_idf_svc::sys::esp_sleep_disable_wakeup_source(
+                    esp_idf_svc::sys::esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL,
+                );
+            }
+        }
 
         unsafe {
-            // Enable pin hold during deep sleep.
-            esp_idf_svc::sys::gpio_hold_en(self.fpga_power.pin());
-            esp_idf_svc::sys::gpio_hold_en(self.fpga.pin_program_b.pin());
-            esp_idf_svc::sys::gpio_hold_en(self.button_power.pin());
-            esp_idf_svc::sys::gpio_deep_sleep_hold_en();
-
-            // Enter deep sleep to maximize chances of holding power button down past brown-out.
-            esp_idf_svc::sys::esp_sleep_disable_wakeup_source(
-                esp_idf_svc::sys::esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL,
-            );
+            // Enter deep sleep.
             esp_idf_svc::sys::esp_deep_sleep_start();
         }
     }
@@ -529,11 +541,27 @@ impl Device<'_> {
     ///
     /// The device must go through a [soft] reset to function correctly after this.
     fn prepare_for_power_off(&mut self) {
+        // Unmount SD card if mounted to flush writes and deinit
+        if let Some(sdcard) = self.sdcard.take() {
+            let _ = sdcard.unmount();
+        }
+
         let _ = self.change_display_mode(DisplayMode::None);
-        // Hold DAC in reset, otherwise it interferes with I2C if rebooting.
-        let _ = self.dac.reset_hold();
-        // TODO: high-Z SPI, other FPGA-power-domain pins.
+
+        // Turn off status LED
+        crate::led::LedController::set_behavior(crate::led::LedBehavior::OFF);
+
+        // Power down DAC and hold in reset
+        self.dac.deinitialize();
+
+        // Power down IMU
+        let _ = self.imu.disable_accel();
+        let _ = self.imu.disable_gyro();
+
+        self.set_lcd_enabled(false);
+
         let _ = self.set_fpga_power(false);
+        self.set_cart_power(false);
 
         // Update uptime
         let this_uptime =
@@ -548,9 +576,9 @@ impl Device<'_> {
     pub fn set_lcd_enabled(&mut self, enabled: bool) {
         self.lcd_backlight.set_enabled(enabled);
         if enabled {
-            self.lcd.exit_sleep().unwrap();
+            let _ = self.lcd.exit_sleep();
         } else {
-            self.lcd.enter_sleep().unwrap();
+            let _ = self.lcd.enter_sleep();
         }
     }
 

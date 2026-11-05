@@ -3,7 +3,8 @@ use esp_idf_svc::{
     hal::gpio::{AnyIOPin, AnyInputPin, AnyOutputPin, Pin},
     sys::{self as esp_idf_sys, EspError},
 };
-use std::ffi::CString;
+
+pub static MOUNT_POINT: &std::ffi::CStr = c"/sdcard";
 
 #[allow(unused)]
 mod constants {
@@ -31,7 +32,6 @@ unsafe impl Sync for Sdcard {}
 
 #[allow(clippy::too_many_arguments)]
 pub fn mount_sdcard(
-    path: &str,
     pin_clk: AnyOutputPin,
     pin_cmd: AnyIOPin,
     pin_d0: AnyIOPin,
@@ -101,14 +101,11 @@ pub fn mount_sdcard(
         use_one_fat: false,
     };
 
-    let mount_point = CString::new(path)
-        .map_err(|_| EspError::from_infallible::<{ esp_idf_sys::ESP_ERR_INVALID_ARG }>())?;
-
     log::info!("Mounting sdcard on slot {}", host_config.slot);
     let mut card: *mut esp_idf_sys::sdmmc_card_t = std::ptr::null_mut();
     let sdmmc_mount_result = unsafe {
         esp_idf_sys::esp_vfs_fat_sdmmc_mount(
-            mount_point.as_ptr(),
+            MOUNT_POINT.as_ptr(),
             &host_config,
             &slot_config as *const esp_idf_sys::sdmmc_slot_config_t as *const c_void,
             &mount_config,
@@ -135,4 +132,13 @@ pub fn mount_sdcard(
     EspError::convert(tinyusb_result)?;
 
     Ok(Sdcard { card })
+}
+
+impl Sdcard {
+    /// Unmount the SD card.
+    pub fn unmount(self) -> Result<(), EspError> {
+        let result =
+            unsafe { esp_idf_sys::esp_vfs_fat_sdcard_unmount(MOUNT_POINT.as_ptr(), self.card) };
+        EspError::convert(result)
+    }
 }

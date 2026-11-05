@@ -77,7 +77,29 @@ pub struct BoardPins {
     pub cart_power: Option<AnyOutputPin>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct SdPins {
+    pub clk: i32,
+    pub cmd: i32,
+    pub d0: i32,
+    pub d1: i32,
+    pub d2: i32,
+    pub d3: i32,
+    pub cd: Option<i32>,
+}
+
 impl BoardPins {
+    pub fn sd_pins(&self) -> SdPins {
+        SdPins {
+            clk: self.sdio_clk.pin(),
+            cmd: self.sdio_cmd.pin(),
+            d0: self.sdio_d0.pin(),
+            d1: self.sdio_d1.pin(),
+            d2: self.sdio_d2.pin(),
+            d3: self.sdio_d3.pin(),
+            cd: self.sd_detect.as_ref().map(|p| p.pin()),
+        }
+    }
     /// Get the pin numbers of all lines connected connected to power domains unpowered
     /// during deep sleep.
     pub fn unpowered_pins(&self) -> ArrayVec<i32, 18> {

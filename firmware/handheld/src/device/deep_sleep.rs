@@ -178,6 +178,7 @@ pub fn confirm_power_on(board: &board::Board) {
     // If deep sleep is enabled, but this is a cold boot, just enter deep sleep immediately.
     // The wakeup stub will verify that power is properly held down.
     if is_deep_sleep_enabled() && ResetReason::get() == ResetReason::PowerOn {
+        super::drivers::sdcard::init_idle(&board.pins.sd_pins());
         enter(&board.sleep_config);
     }
 

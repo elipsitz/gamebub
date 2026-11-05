@@ -126,6 +126,7 @@ impl Device<'_> {
         }
 
         let sleep_config = board.sleep_config.clone();
+        let sd_pins = board.pins.sd_pins();
 
         // Status LED: active high
         let led = LedcDriver::new(
@@ -143,16 +144,7 @@ impl Device<'_> {
         crate::led::LedController::set_behavior(crate::led::LedBehavior::LOADING);
 
         // Mount sdcard to /sdcard
-        let sdcard = drivers::sdcard::mount_sdcard(
-            board.pins.sdio_clk,
-            board.pins.sdio_cmd,
-            board.pins.sdio_d0,
-            board.pins.sdio_d1,
-            board.pins.sdio_d2,
-            board.pins.sdio_d3,
-            board.pins.sd_detect,
-        )
-        .ok();
+        let sdcard = drivers::sdcard::mount_sdcard(&sd_pins).ok();
         if sdcard.is_some() {
             crate::crash_handler::maybe_persist();
         }

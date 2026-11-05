@@ -1,8 +1,7 @@
 use core::ffi::{c_int, c_void};
-use esp_idf_svc::{
-    hal::gpio::{AnyIOPin, AnyInputPin, AnyOutputPin, Pin},
-    sys::{self as esp_idf_sys, EspError},
-};
+use esp_idf_svc::sys::{self as esp_idf_sys, EspError};
+
+use crate::device::board::SdPins;
 
 pub static MOUNT_POINT: &std::ffi::CStr = c"/sdcard";
 
@@ -30,16 +29,7 @@ pub struct Sdcard {
 unsafe impl Send for Sdcard {}
 unsafe impl Sync for Sdcard {}
 
-#[allow(clippy::too_many_arguments)]
-pub fn mount_sdcard(
-    pin_clk: AnyOutputPin,
-    pin_cmd: AnyIOPin,
-    pin_d0: AnyIOPin,
-    pin_d1: AnyIOPin,
-    pin_d2: AnyIOPin,
-    pin_d3: AnyIOPin,
-    pin_cd: Option<AnyInputPin>,
-) -> Result<Sdcard, EspError> {
+pub fn mount_sdcard(pins: &SdPins) -> Result<Sdcard, EspError> {
     let host_config = esp_idf_sys::sdmmc_host_t {
         flags: SDMMC_HOST_FLAG_1BIT
             | SDMMC_HOST_FLAG_4BIT
@@ -74,19 +64,19 @@ pub fn mount_sdcard(
 
     let slot_config = esp_idf_sys::sdmmc_slot_config_t {
         __bindgen_anon_1: esp_idf_sys::sdmmc_slot_config_t__bindgen_ty_1 {
-            gpio_cd: pin_cd.map(|p| p.pin()).unwrap_or(SDMMC_SLOT_NO_CD),
+            gpio_cd: pins.cd.unwrap_or(SDMMC_SLOT_NO_CD),
         },
         __bindgen_anon_2: esp_idf_sys::sdmmc_slot_config_t__bindgen_ty_2 {
             gpio_wp: SDMMC_SLOT_NO_WP,
         },
         width: 4,
         flags: 0,
-        clk: pin_clk.pin(),
-        cmd: pin_cmd.pin(),
-        d0: pin_d0.pin(),
-        d1: pin_d1.pin(),
-        d2: pin_d2.pin(),
-        d3: pin_d3.pin(),
+        clk: pins.clk,
+        cmd: pins.cmd,
+        d0: pins.d0,
+        d1: pins.d1,
+        d2: pins.d2,
+        d3: pins.d3,
         d4: esp_idf_sys::gpio_num_t_GPIO_NUM_NC,
         d5: esp_idf_sys::gpio_num_t_GPIO_NUM_NC,
         d6: esp_idf_sys::gpio_num_t_GPIO_NUM_NC,
@@ -132,6 +122,16 @@ pub fn mount_sdcard(
     EspError::convert(tinyusb_result)?;
 
     Ok(Sdcard { card })
+}
+
+/// Initialize (and then unmount) the microSD card so that its internal controller
+/// enters a low-power standby mode.
+/// This prevents excessive power draw during deep sleep (if the microSD card remains
+/// powered).
+pub fn init_idle(pins: &SdPins) {
+    if let Ok(sdcard) = mount_sdcard(pins) {
+        let _ = sdcard.unmount();
+    }
 }
 
 impl Sdcard {

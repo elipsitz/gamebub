@@ -31,6 +31,9 @@ has_max17048 = []
 has_bq27427 = []
 has_ili9806e = []
 
+# TODO: Remove when 1.1 is released
+no_beta_cores = []
+
 pio = ["esp-idf-svc/pio"]
 std = [
     "alloc",

@@ -88,6 +88,7 @@ pub fn list_cores() -> Vec<CoreListEntry> {
     ];
 
     // Iterate over possible core directories.
+    #[cfg(not(feature = "no_beta_cores"))]
     if let Ok(entries) = std::fs::read_dir(DIR_CORES) {
         for entry in entries {
             let entry = match entry {

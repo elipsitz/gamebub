@@ -35,10 +35,13 @@ set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clk_in_50mhz]
 
 # The 'dpi' and 'hdmi' clocks pass through a clock mux, and are mutually exclusive.
 # Mark their fanouts as being in a physically exclusive clock group.
-set_clock_groups -name exclusive_dpi_hdmi -physically_exclusive -group clk_dpi -group clk_hdmi_clk_wiz_hdmi
+# Query the clocks directly from the multiplexer pins so cores do not need to name their clock net 'clk_dpi'.
+set_clock_groups -name exclusive_dpi_hdmi -physically_exclusive \
+    -group [get_clocks -of_objects [get_pins -hierarchical *bufgmux_av/I0]] \
+    -group [get_clocks -of_objects [get_pins -hierarchical *bufgmux_av/I1]]
 
 # Mark the BUFGMUX_CTRL select input as having a false path.
 # From UG472, the select input's setup/hold times only determine whether the old clock is used for an extra cycle
 # after changing, which we don't care about.
-set_false_path -setup -hold -to bufgmux_av/S0
-set_false_path -setup -hold -to bufgmux_av/S1
+set_false_path -setup -hold -to [get_pins -hierarchical *bufgmux_av/S0]
+set_false_path -setup -hold -to [get_pins -hierarchical *bufgmux_av/S1]

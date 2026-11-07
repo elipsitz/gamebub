@@ -45,7 +45,6 @@ const FILE_SAVE: u16 = 1;
 const FILE_BIOS_CGB: u16 = 2;
 const FILE_BIOS_DMG: u16 = 3;
 
-const SETTING_RESET: u16 = 0;
 const SETTING_GB_MODE: u16 = 1;
 const SETTING_GBC_COLOR_CORRECTIONS: u16 = 2;
 const SETTING_GB_COLOR_PALETTE: u16 = 3;
@@ -103,7 +102,7 @@ impl Gameboy {
             uses_cartridge: CoreCartridgeMode::IfSelected,
             files: [
                 CoreFile {
-                    id: SETTING_RESET,
+                    id: FILE_ROM,
                     label: "ROM".try_into().unwrap(),
                     extensions: ["gb".try_into().unwrap(), "gbc".try_into().unwrap()]
                         .into_iter()
@@ -124,7 +123,7 @@ impl Gameboy {
                     transfer_word_size: fpga::FpgaSpiWordSize::Bits32,
                 },
                 CoreFile {
-                    id: 1,
+                    id: FILE_SAVE,
                     label: "Save".try_into().unwrap(),
                     extensions: ["sav".try_into().unwrap()].into_iter().collect(),
                     filename: None,
@@ -142,7 +141,7 @@ impl Gameboy {
                     transfer_word_size: fpga::FpgaSpiWordSize::Bits16,
                 },
                 CoreFile {
-                    id: 2,
+                    id: FILE_BIOS_CGB,
                     label: "BIOS CGB".try_into().unwrap(),
                     extensions: ["bin".try_into().unwrap()].into_iter().collect(),
                     filename: None, // TODO
@@ -160,7 +159,7 @@ impl Gameboy {
                     transfer_word_size: fpga::FpgaSpiWordSize::Bits8,
                 },
                 CoreFile {
-                    id: 3,
+                    id: FILE_BIOS_DMG,
                     label: "BIOS DMG".try_into().unwrap(),
                     extensions: ["bin".try_into().unwrap()].into_iter().collect(),
                     filename: None, // TODO
@@ -181,14 +180,6 @@ impl Gameboy {
             .into_iter()
             .collect(),
             settings: [
-                CoreSetting {
-                    id: 0,
-                    label: "Reset Core".into(),
-                    address: REG_RESET_ONCE,
-                    mask: 0,
-                    default: 0,
-                    inner: CoreSettingType::Action { value: 1 },
-                },
                 CoreSetting {
                     id: SETTING_GB_MODE,
                     label: "Enable GB Mode".into(),

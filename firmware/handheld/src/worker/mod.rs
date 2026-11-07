@@ -37,6 +37,8 @@ pub enum Message {
     RunCore(String),
     /// Exit the current core (or cancel loading)
     ExitCore,
+    /// Reset the current core
+    ResetCore,
     /// A file was selected for the core (could be a directory).
     CoreFileSelected(PathBuf),
     /// Core file selection was cancelled.
@@ -140,6 +142,7 @@ fn dispatch(message: Message) {
         Message::FetchCoreList => CoreManager::lock().list_cores(),
         Message::RunCore(id) => CoreManager::lock().run_core(&id, false),
         Message::ExitCore => CoreManager::lock().exit_core(),
+        Message::ResetCore => CoreManager::lock().reset_core(),
         Message::CoreFileSelected(file) => CoreManager::lock().handle_file_selected(file),
         Message::CoreFileCancelled => CoreManager::lock().cancel_file_select(),
         Message::CoreFocusChanged(focused) => CoreManager::lock().focus_changed(focused),

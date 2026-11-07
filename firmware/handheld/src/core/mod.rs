@@ -322,6 +322,14 @@ impl CoreManager {
         Device::lock().set_cart_power(false);
     }
 
+    pub fn reset_core(&mut self) {
+        if self.stage != Stage::Running {
+            return;
+        }
+        let _ = self.run_core_command(&[command::CORE_HALT], &mut [], NOTIFY_TIMEOUT);
+        let _ = self.run_core_command(&[command::CORE_RUN], &mut [], NOTIFY_TIMEOUT);
+    }
+
     fn poll_core_status(&mut self, expected: u32, timeout: Duration) -> Result<(), CoreError> {
         let start = Instant::now();
         loop {

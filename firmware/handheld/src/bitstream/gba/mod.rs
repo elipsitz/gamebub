@@ -49,7 +49,6 @@ const FILE_SAVE: u16 = 1;
 const FILE_BIOS: u16 = 2;
 const FILE_CONFIG_OVERRIDE: u16 = 3;
 
-const SETTING_RESET: u16 = 0;
 const SETTING_COLOR_CORRECTIONS: u16 = 1;
 const SETTING_GAME_BOY_PLAYER: u16 = 2;
 
@@ -311,14 +310,6 @@ impl Gba {
             .into_iter()
             .collect(),
             settings: [
-                CoreSetting {
-                    id: SETTING_RESET,
-                    label: "Reset Core".into(),
-                    address: 0x0000_2000,
-                    mask: 0,
-                    default: 0,
-                    inner: CoreSettingType::Action { value: 1 },
-                },
                 CoreSetting {
                     id: SETTING_COLOR_CORRECTIONS,
                     label: "Color Corrections".into(),

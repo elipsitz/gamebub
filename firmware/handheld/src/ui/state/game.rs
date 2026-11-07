@@ -29,6 +29,10 @@ impl UiState {
             worker::send(worker::Message::CoreFocusChanged(focused));
         });
 
+        backend.on_game_reset(move || {
+            worker::send(worker::Message::ResetCore);
+        });
+
         let state_ = state.clone();
         backend.on_game_settings_load(move || {
             // Clear existing settings

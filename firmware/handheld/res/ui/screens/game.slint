@@ -32,7 +32,7 @@ export component GameScreen inherits ScreenBase {
 
     i-focus-scope := FocusScope {
         key-released(event) => {
-            if (event.text == "Home" || event.text == "h") && !Global.home-consumed {
+            if (event.text == "Home" || event.text == "h") && !Global.home-consumed && !Backend.core-is-loading {
                 set-menu-open(!root.menu-open);
             }
             if (event.text == "Power") {

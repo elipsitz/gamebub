@@ -335,8 +335,13 @@ module top_handheld (
         .io_sram_writeMaskN(inner_sram_write_mask),
 
         .io_sdram_clock(sdram_clk),
+`ifdef BOARD_REV_4
+        .io_sdram_cke(sdram_cke),
+        .io_sdram_cs(sdram_cs_n),
+`else
         .io_sdram_cke(sdram_cke[0]),
         .io_sdram_cs(sdram_cs_n[0]),
+`endif
         .io_sdram_ras(sdram_ras_n),
         .io_sdram_cas(sdram_cas_n),
         .io_sdram_we(sdram_we_n),
@@ -417,9 +422,6 @@ module top_handheld (
     assign {sdram_udqm, sdram_ldqm} = inner_sdram_dqm;
     assign inner_sdram_dq_in = sdram_dq;
     assign sdram_dq = inner_sdram_dq_dir ? inner_sdram_dq_out : 16'hzzzz;
-    // TODO: support second SDRAM chip (rev 4)
-    assign sdram_cke[1] = 1'b0;
-    assign sdram_cs_n[1] = 1'b1;
 
     // HDMI TMDS output
     logic hdmi_reset;

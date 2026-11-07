@@ -162,7 +162,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     val sram = new SramV0(addressWidth = 18, dataWidth = 16)
 
     // SDRAM
-    val sdram = new SdramV0(addressWidth = 13, dataWidth = 16, bankWidth = 2, chips = 1)
+    val sdram = new SdramV0(addressWidth = 13, dataWidth = 16, bankWidth = 2, chips = revision.numSdramChips)
   })
 
   //////////////////////////////////
@@ -379,13 +379,27 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   core.getInterface("sdram") match {
     case Some(sdram: SdramV0) => {
       assert(sdram.chips <= revision.numSdramChips)
-      io.sdram <> sdram
+      io.sdram.clock := sdram.clock
+      io.sdram.ras := sdram.ras
+      io.sdram.cas := sdram.cas
+      io.sdram.we := sdram.we
+      io.sdram.dqm := sdram.dqm
+      io.sdram.bank := sdram.bank
+      io.sdram.address := sdram.address
+      io.sdram.dataOut := sdram.dataOut
+      io.sdram.dataDir := sdram.dataDir
+      sdram.dataIn := io.sdram.dataIn
+
+      // Unused chips: nCS = 1, CKE = 0
+      val unused = revision.numSdramChips - sdram.chips
+      io.sdram.cs := Cat(Seq.fill(unused)(1.U(1.W)) :+ sdram.cs)
+      io.sdram.cke := Cat(Seq.fill(unused)(0.U(1.W)) :+ sdram.cke)
     }
     case Some(x) => throw new CoreException("Unknown 'sdram': " + x.getClass())
     case None => {
       io.sdram.clock := false.B.asClock
-      io.sdram.cke := false.B
-      io.sdram.cs := true.B
+      io.sdram.cke := 0.U(revision.numSdramChips.W)
+      io.sdram.cs := Fill(revision.numSdramChips, 1.U)
       io.sdram.ras := true.B
       io.sdram.cas := true.B
       io.sdram.we := true.B

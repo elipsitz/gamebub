@@ -20,7 +20,7 @@ class SdramV0(
   /** Clock */
   val clock = Output(Clock())
   /** Clock Enable */
-  val cke = Output(Bool())
+  val cke = Output(UInt(chips.W))
 
   /** Chip Select (active-low) */
   val cs = Output(UInt(chips.W))

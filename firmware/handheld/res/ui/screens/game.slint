@@ -1,9 +1,53 @@
 import { Global, ScreenId, Backend } from "../common.slint";
 import { ScreenBase } from "../components/screen.slint";
 import { Button } from "../components/button.slint";
-import { ButtonList } from "../components/button_list.slint";
 import { CoreSettingList } from "cores/core_settings.slint";
 import { CoreSettingType } from "cores/types.slint";
+
+component SidebarMenu inherits VerticalLayout {
+    callback on-selected(item: int);
+
+    in property <[string]> items;
+    in-out property <int> focused-item: 0;
+
+    padding: 4px;
+    spacing: 2px;
+    forward-focus: i-focus-scope;
+
+    i-focus-scope := FocusScope {
+        key-pressed(event) => {
+            if (event.repeat) {
+                reject
+            } else if (event.text == "a") {
+                on-selected(focused-item);
+                accept
+            } else if (event.text == Key.UpArrow) {
+                focused-item = max(0, focused-item - 1);
+                accept
+            } else if (event.text == Key.DownArrow) {
+                focused-item = min(items.length - 1, focused-item + 1);
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+
+    for item[index] in items: Rectangle {
+        min-width: i-text.preferred-width + 8px;
+        height: i-text.preferred-height + 4px;
+        border-width: focused-item == index ? 1px : 0px;
+        border-color: black;
+
+        i-text := Text {
+            text: item;
+            x: 4px;
+            y: (parent.height - self.height) / 2;
+            color: focused-item == index ? black : gray;
+        }
+    }
+}
+
 
 export component GameScreen inherits ScreenBase {
     private property <bool> menu-open: false;
@@ -13,9 +57,11 @@ export component GameScreen inherits ScreenBase {
     // /** todo: dev remove */
     // width: 240px;
     // height: 160px;
+    // background: magenta;
     // init => {
+    //     menu-open = true;
     //     settings-open = true;
-    //     i-settings.focus();
+    //     // i-settings.focus();
     // }
 
     protected function set-menu-open(open: bool) {
@@ -23,6 +69,7 @@ export component GameScreen inherits ScreenBase {
         Backend.game-set-focused(!open);
         self.menu-open = open;
         if (menu-open) {
+            i-list.focused-item = 0;
             i-list.focus();
         } else {
             settings-open = false;
@@ -35,26 +82,30 @@ export component GameScreen inherits ScreenBase {
             if (event.text == "Home" || event.text == "h") && !Global.home-consumed && !Backend.core-is-loading {
                 set-menu-open(!root.menu-open);
             }
-            if (event.text == "Power") {
+            if event.text == "Power" {
                 set-menu-open(true);
             }
-            if event.text == "b" && settings-open {
-                settings-open = false;
-                i-list.focus();
+            if event.text == "b" {
+                if settings-open {
+                    settings-open = false;
+                    i-list.focus();
+                } else {
+                    set-menu-open(false);
+                }
             }
             reject
         }
 
-        menu := Rectangle {
+        i-menu := Rectangle {
             visible: menu-open;
             background: #FFF;
-            border-color: black;
-            border-width: 1px;
-            width: i-list.min-width + 20px;
-            height: i-list.min-height;
+            x: 0;
+            width: i-list.min-width;
+            height: 100%;
 
-            i-list := ButtonList {
-                items: ["Return", "Settings", "Exit Core"];
+            i-list := SidebarMenu {
+                alignment: start;
+                items: ["Return", "Settings >", "Exit Core"];
                 on-selected(item) => {
                     if (item == 0) {
                         root.set-menu-open(false);
@@ -68,17 +119,16 @@ export component GameScreen inherits ScreenBase {
             }
         }
 
-        settings := Rectangle {
-            visible: settings-open;
+        if settings-open: Rectangle {
             background: #FFF;
             border-color: black;
             border-width: 1px;
-            x: 32px;
+            x: i-menu.width + 8px;
             y: 32px;
-            width: root.width - 64px;
+            width: root.width - self.x - 8px;
             height: root.height - 64px;
 
-            if settings-open: CoreSettingList {
+            CoreSettingList {
                 x: 2px;
                 y: 2px;
                 width: parent.width - 4px;

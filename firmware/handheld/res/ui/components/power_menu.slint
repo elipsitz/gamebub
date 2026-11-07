@@ -11,7 +11,7 @@ export component PowerMenu inherits PopupWindow {
         i-list.focus();
     }
 
-    Rectangle {
+    if !Global.ui-transparent: Rectangle {
         width: 100%;
         height: 100%;
         background: black;

@@ -401,6 +401,12 @@ impl CoreManager {
             let _ = device
                 .fpga
                 .write_u32(fpga::REG_CTRL_FOCUS, has_focus as u32);
+
+            // Darken video if not focused
+            let video_filter = if has_focus { 0 } else { 1 };
+            let _ = device
+                .fpga
+                .write_u32(fpga::REG_CTRL_VIDEO_FILTER, video_filter);
         }
 
         let _ = self.run_core_command(

@@ -72,7 +72,7 @@ class ILI9806E(
     var hFrontPorch = hFrontPorchMin
     var hBackPorch = (totalWidth - hActive - hSync - hFrontPorchMin)
     if (hBackPorch > hBackPorchMax) {
-        val amount = hBackPorchMax - hBackPorch
+        val amount = hBackPorch - hBackPorchMax
         hBackPorch -= amount
         hFrontPorch += amount
     }

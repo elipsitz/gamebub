@@ -60,19 +60,10 @@ class CartridgeUtility extends Module {
     val memHostPort = mem.readwritePorts(0)
     val memDevicePort = mem.readwritePorts(1)
 
-    // Work around a bug in Chisel 7:
-    // https://github.com/chipsalliance/chisel/issues/5243
-    // Without this, the constant "b1111".U turns into "4'h1" in Verilog in the
-    // SRAM write mask, for some reason.
-    // Note that due to the current implementation of SpiReceiverFifo,
-    //   io.memInterface.writeStrobe is a constant "b1111".
-    val writeMask = dontTouch(Wire(Vec(4, Bool())))
-    writeMask := VecInit(true.B, true.B, true.B, true.B)
-
     memHostPort.enable := io.memInterface.enable
     memHostPort.address := io.memInterface.address >> 2
     memHostPort.isWrite := io.memInterface.write
-    memHostPort.mask.get := writeMask
+    memHostPort.mask.get := VecInit(true.B, true.B, true.B, true.B)
     memHostPort.writeData := io.memInterface.dataWrite.asTypeOf(memHostPort.writeData)
     io.memInterface.dataRead := memHostPort.readData.asUInt
     io.memInterface.done := RegNext(memHostPort.enable)

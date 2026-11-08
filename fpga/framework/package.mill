@@ -6,7 +6,7 @@ import pythonlib._
 
 trait FrameworkModule extends ScalaModule {
   def scalaVersion = "2.13.16"
-  def chiselVersion = "7.7.0"
+  def chiselVersion = "7.16.0"
 
   override def moduleDir = super.moduleDir / os.up
 

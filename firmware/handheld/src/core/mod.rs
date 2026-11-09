@@ -13,6 +13,7 @@ use crate::{
 };
 
 pub use error::*;
+pub use files_on_demand::OnDemandFile;
 pub use handler::CoreHandler;
 use handler::CoreHandlerImpl;
 pub use info::*;
@@ -22,6 +23,7 @@ mod command;
 mod error;
 mod file_selection;
 mod files;
+mod files_on_demand;
 mod handler;
 pub mod info;
 pub mod settings;
@@ -44,6 +46,8 @@ pub struct CoreManager {
     core_handler: CoreHandlerImpl,
     core_settings: Option<CoreSettings>,
     selected_files: Vec<Option<PathBuf>>,
+    /// The currently open on-demand file, if any.
+    open_on_demand_file: Option<OnDemandFile>,
     run_cartridge: bool,
 }
 
@@ -68,6 +72,7 @@ impl CoreManager {
             core_handler: CoreHandlerImpl::None,
             core_settings: None,
             selected_files: Vec::new(),
+            open_on_demand_file: None,
             run_cartridge: false,
         }
     }
@@ -214,7 +219,11 @@ impl CoreManager {
         self.core_settings = None;
         self.stage = Stage::Idle;
         self.selected_files.clear();
+        self.open_on_demand_file = None;
 
+        let _ = Device::lock()
+            .fpga
+            .disable_interrupt(fpga::Irq::CoreRequest);
         Device::lock().set_cart_power(false);
     }
 
@@ -304,6 +313,9 @@ impl CoreManager {
             core_handler.on_before_run().map_err(CoreError::Other)?;
         }
 
+        // Start listening for core requests
+        let _ = Device::lock().fpga.enable_interrupt(fpga::Irq::CoreRequest);
+
         // Tell the core we're finished setting up.
         self.run_core_command(&[command::SETUP_COMPLETE], &mut [], NOTIFY_TIMEOUT)?;
 
@@ -317,6 +329,7 @@ impl CoreManager {
 
         // Start core.
         let _ = Device::lock().fpga.write_u32(fpga::REG_CTRL_VIBRATE, 1);
+
         let _ = self.run_core_command(&[command::CORE_RUN], &mut [], NOTIFY_TIMEOUT);
         self.focus_changed(true);
         Ok(())

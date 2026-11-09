@@ -65,8 +65,12 @@ pub struct CoreFile {
     /// If true, if the file is not loaded, the region will still be initialized with 0xFFs.
     #[serde(default)]
     pub initialize: bool,
+    /// If true, the file is not automatically loaded at startup.
+    #[serde(default)]
+    pub on_demand: bool,
 
     /// The address to load the file to.
+    #[serde(default)]
     #[serde(deserialize_with = "deserialize_hex_u32")]
     pub address: u32,
     /// Maximum size of the file.
@@ -184,8 +188,8 @@ pub fn list_cores() -> Vec<CoreListEntry> {
 
             let file = match File::open(&path) {
                 Ok(file) => file,
-                Err(_) => {
-                    log::warn!("Failed to open core file");
+                Err(e) => {
+                    log::warn!("Failed to open core file {}: {e:?}", path.display());
                     continue;
                 }
             };

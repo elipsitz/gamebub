@@ -71,6 +71,7 @@ pub enum Irq {
     Button = 1,
     SpiRequestOverflow = 2,
     SpiResponseUnderflow = 3,
+    CoreRequest = 4,
 }
 
 impl Irq {

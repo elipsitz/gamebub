@@ -88,6 +88,9 @@ fn dispatch(message: Message) {
                     bitstream.on_vblank_irq();
                 }
             }
+            if (irq_mask & fpga::Irq::CoreRequest.as_flag()) != 0 {
+                CoreManager::lock().handle_core_request();
+            }
         }
         Message::HeadphoneState(has_headphones) => {
             log::info!("Headphone detection: {}", has_headphones);

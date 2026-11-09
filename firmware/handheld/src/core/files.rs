@@ -62,6 +62,14 @@ impl CoreManager {
                 path = path.or(core_handler.get_file_path_override(info.id));
             }
 
+            if info.on_demand {
+                if !info.optional && info.read_only && !path.as_ref().is_some_and(|p| p.exists()) {
+                    return Err(CannotOpenFile(info.label.to_string()));
+                }
+                self.selected_files[i] = path;
+                continue;
+            }
+
             let path = match path {
                 Some(path) => path,
                 // Use an empty path. Open will fail and we'll clear it.
@@ -206,6 +214,20 @@ impl CoreManager {
     pub(super) fn persist_files(&mut self) -> Result<(), CoreError> {
         assert!(self.stage == Stage::Running);
         let core = self.core_info.as_ref().unwrap();
+
+        // First, handle the open on-demand file (if any) before we start
+        // opening other files.
+        if let Some(file) = &mut self.open_on_demand_file {
+            if let Some(info) = core.files.iter().find(|f| f.id == file.id) {
+                if !info.read_only {
+                    file.file.sync_all().map_err(|_| {
+                        FailedSaveFile(info.label.to_string(), "Sync failed".to_string())
+                    })?;
+                }
+            }
+            self.open_on_demand_file = None;
+        }
+
         for (i, info) in core.files.iter().enumerate() {
             if info.read_only {
                 continue;

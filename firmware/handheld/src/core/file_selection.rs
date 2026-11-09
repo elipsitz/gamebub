@@ -155,10 +155,10 @@ impl CoreManager {
             .take(FILE_LIST_MAX)
             .collect::<Vec<_>>();
         files.sort_unstable_by(|f1, f2| {
-            // Sort by name, with directories first.
-            let c1 = (f1.1.is_file(), f1.0.as_str());
-            let c2 = (f2.1.is_file(), f2.0.as_str());
-            c1.cmp(&c2)
+            // 1) Directories first
+            let directory_order = f1.1.is_file().cmp(&f2.1.is_file());
+            // 2) then naturally by filename
+            directory_order.then_with(|| natord::compare_ignore_case(&f1.0, &f2.0))
         });
 
         // If this file is optional, make a "nope" entry.

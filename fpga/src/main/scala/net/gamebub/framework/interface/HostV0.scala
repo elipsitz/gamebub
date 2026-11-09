@@ -12,6 +12,16 @@ object HostV0 {
     val CommandFileWriteEnd = 0x0301
     val CommandFileReadStart = 0x0302
     val CommandFileReadEnd = 0x0303
+    val CommandFileGetSize = 0x0400
+    val CommandFileSetSize = 0x0401
+    val CommandFileRead = 0x0402
+    val CommandFileWrite = 0x0403
+    val CommandFileFlush = 0x0404
+
+    val FileStatusOk = 0
+    val FileStatusErrInvalidFile = 1
+    val FileStatusErrIo = 2
+    val FileStatusErrBounds = 3
 
     class CommandChannel extends Bundle {
         /** Whether a request is active: held high for the duration of the request. */

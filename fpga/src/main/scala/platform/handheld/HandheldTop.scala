@@ -978,6 +978,12 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   coreCommandCore.busy := controlCommandCore.busy
   coreCommandCore.done := controlCommandCore.done
   coreCommandCore.error := controlCommandCore.error
+
+  when (!coreCommandCore.request) {
+    controlCommandCore.busy := false.B
+    controlCommandCore.done := false.B
+    controlCommandCore.error := false.B
+  }
 }
 
 case class Revision(

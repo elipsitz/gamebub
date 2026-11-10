@@ -46,6 +46,8 @@ export global Global {
     // Whether the UI is transparent. Start true for the boot animation.
     in-out property <bool> ui-transparent: true;
     in-out property <bool> ui-status-bar: true;
+    // Whether the Power menu is open.
+    in-out property <bool> power-menu-open: false;
 
     public function set-screen(screen: ScreenId) {
         current-screen = screen;

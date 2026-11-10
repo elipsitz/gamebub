@@ -82,7 +82,7 @@ export component GameScreen inherits ScreenBase {
             if (event.text == "Home" || event.text == "h") && !Global.home-consumed && !Backend.core-is-loading {
                 set-menu-open(!root.menu-open);
             }
-            if event.text == "Power" {
+            if event.text == "Power" && !root.menu-open {
                 set-menu-open(true);
             }
             if event.text == "b" {
@@ -97,7 +97,7 @@ export component GameScreen inherits ScreenBase {
         }
 
         i-menu := Rectangle {
-            visible: menu-open;
+            visible: menu-open && !Global.power-menu-open;
             background: #FFF;
             x: 0;
             width: i-list.min-width;
@@ -123,6 +123,7 @@ export component GameScreen inherits ScreenBase {
         }
 
         if settings-open: Rectangle {
+            visible: !Global.power-menu-open;
             background: #FFF;
             border-color: black;
             border-width: 1px;

@@ -1,6 +1,6 @@
 
 import { Button } from "../components/button.slint";
-import { Global, Backend } from "../common.slint";
+import { Global, Backend, ScreenId } from "../common.slint";
 import { ButtonList } from "button_list.slint";
 
 export component PowerMenu inherits PopupWindow {
@@ -11,7 +11,7 @@ export component PowerMenu inherits PopupWindow {
         i-list.focus();
     }
 
-    if !Global.ui-transparent: Rectangle {
+    if Global.current-screen != ScreenId.Game: Rectangle {
         width: 100%;
         height: 100%;
         background: black;
@@ -37,6 +37,7 @@ export component PowerMenu inherits PopupWindow {
                 } else if (item == 1) {
                     Backend.reboot();
                 } else if (item == 2) {
+                    Global.power-menu-open = false;
                     root.close();
                 }
             }

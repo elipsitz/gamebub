@@ -16,7 +16,7 @@ use ::slint::{
     PhysicalSize, Timer, TimerMode,
 };
 
-use crate::device::{Device, DisplayMode};
+use crate::device::Device;
 use crate::input::{self, InputManager};
 pub use crate::ui::state::CoreSettingUiItem;
 use crate::worker;
@@ -135,12 +135,7 @@ impl UI {
             .fpga
             .write_u32(crate::bitstream::boot::REG_LOGO_Y, 38)
             .unwrap();
-        let display_mode = if device.docked {
-            DisplayMode::External
-        } else {
-            DisplayMode::Internal
-        };
-        device.change_display_mode(display_mode).unwrap();
+        device.refresh_display_mode().unwrap();
         // Start the boot animation after a delay.
         Timer::single_shot(Duration::from_millis(500), || {
             let animation = 1 | (6 << 2); // 6: 0.66 seconds

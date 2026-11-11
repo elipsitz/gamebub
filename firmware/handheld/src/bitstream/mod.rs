@@ -53,7 +53,7 @@ pub fn program_fpga(path: &Path) {
         .fpga
         .program(&mut bitstream, &mut SCRATCH.take().unwrap())
         .unwrap();
-    device.fpga.set_display_mode(display_mode).unwrap();
+    device.apply_dock_state().unwrap();
     device.fpga.enable_interrupt(fpga::Irq::Button).unwrap();
     ui::send(ui::Message::InputState(device.get_input_state().unwrap()));
     ui::send(ui::Message::Redraw);

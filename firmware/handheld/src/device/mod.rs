@@ -623,10 +623,40 @@ impl Device<'_> {
         self.rtc.write_datetime(dt).unwrap();
     }
 
+    /// Update the physical dock state and refresh display mode.
+    pub fn set_docked(&mut self, docked: bool) -> Result<(), anyhow::Error> {
+        self.docked = docked;
+        self.refresh_display_mode()
+    }
+
+    /// Refresh display mode based on dock state and settings.
+    pub fn refresh_display_mode(&mut self) -> Result<(), anyhow::Error> {
+        let target_mode = if self.docked
+            && !crate::kvs::keys::DOCK_USE_BUILTIN_SCREEN
+                .get()
+                .unwrap_or(false)
+        {
+            DisplayMode::External
+        } else {
+            DisplayMode::Internal
+        };
+        self.change_display_mode(target_mode)
+    }
+
+    /// Apply the current dock state and display mode to the FPGA dock register.
+    pub fn apply_dock_state(&mut self) -> Result<(), anyhow::Error> {
+        let use_builtin = self.docked && self.display_mode == DisplayMode::Internal;
+        self.fpga
+            .set_dock_state(self.docked, use_builtin)
+            .context("set FPGA dock state")?;
+        Ok(())
+    }
+
     /// Update the display mode (internal vs external).
     pub fn change_display_mode(&mut self, new_mode: DisplayMode) -> Result<(), anyhow::Error> {
         let old_mode = self.display_mode;
         if old_mode == new_mode {
+            self.apply_dock_state()?;
             return Ok(());
         }
         log::info!("Display mode: {:?}", new_mode);
@@ -637,9 +667,8 @@ impl Device<'_> {
             self.lcd.enter_sleep()?;
         }
 
-        self.fpga
-            .set_display_mode(new_mode)
-            .context("set FPGA display mode")?;
+        self.display_mode = new_mode;
+        self.apply_dock_state()?;
 
         if new_mode == DisplayMode::Internal {
             self.lcd.exit_sleep().context("LCD exit sleep")?;
@@ -650,7 +679,6 @@ impl Device<'_> {
             self.dac.set_power_down(1, false)?;
         }
 
-        self.display_mode = new_mode;
         Ok(())
     }
 

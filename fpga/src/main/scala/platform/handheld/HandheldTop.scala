@@ -437,7 +437,9 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   val controlInterruptEnable = RegInit(0.U.asTypeOf(new HandheldInterrupts))
   val controlInterruptPending = RegInit(0.U.asTypeOf(new HandheldInterrupts))
   val controlButtonForce = RegInit(0.U.asTypeOf(new InputV0.Buttons))
-  val controlDock = RegInit(0.U.asTypeOf(new Bundle() {
+  val controlDock = RegInit(0.U.asTypeOf(new Bundle {
+    /** Use the built-in screen even when docked */
+    val useInternalScreen = Bool()
     /** True if the device is docked */
     val docked = Bool()
   }))
@@ -589,7 +591,8 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   //////////////////////////////////
   // Video
   //////////////////////////////////
-  io.hdmiEnable := controlDock.docked
+  val hdmiActive = controlDock.docked && !controlDock.useInternalScreen
+  io.hdmiEnable := hdmiActive
 
   // Double buffering
   val framebuffers = (0 until 2).map(_ =>
@@ -612,7 +615,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   // Keep HDMI MMCM powered for a few more cycles after switching away
   // from it to ensure the clock mux functions correctly.
   val hdmiClockPowerTimer = RegInit(0.U(3.W))
-  when (controlDock.docked) {
+  when (hdmiActive) {
     hdmiClockPowerTimer := 7.U
   } .elsewhen (hdmiClockPowerTimer > 0.U) {
     hdmiClockPowerTimer := hdmiClockPowerTimer - 1.U
@@ -712,7 +715,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     io.hdmiRgb := videoOutput.convertTo(ColorRGB(8, 8, 8)).asUInt
     val regHdmiFrame = RegInit(0.U(1.W))
 
-    val hdmiEnable = XpmCdcSingle(clock, controlDock.docked)
+    val hdmiEnable = XpmCdcSingle(clock, hdmiActive)
     when (hdmiEnable) {
       dpiDriver.reset := true.B
       val screenWidth = 720

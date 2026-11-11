@@ -6,7 +6,7 @@ use std::sync::{mpsc, OnceLock};
 use crate::core::CoreManager;
 use crate::device::drivers::fpga;
 use crate::device::Device;
-use crate::device::DisplayMode;
+
 use crate::input::InputManager;
 use crate::{kvs, ui};
 
@@ -122,16 +122,12 @@ fn dispatch(message: Message) {
             });
 
             InputManager::lock().remove_all_gamepads();
-            let mut device = Device::lock();
-            device.docked = true;
-            device.change_display_mode(DisplayMode::External).unwrap();
+            Device::lock().set_docked(true).unwrap();
         }
         Message::DockEnd => {
             ui::send(ui::Message::DockEnd);
             InputManager::lock().remove_all_gamepads();
-            let mut device = Device::lock();
-            device.docked = false;
-            device.change_display_mode(DisplayMode::Internal).unwrap();
+            Device::lock().set_docked(false).unwrap();
         }
         Message::IdleTimerExpired => {
             // If the idle timer expires during setup, just power off.

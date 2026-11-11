@@ -15,8 +15,6 @@ use esp_idf_svc::hal::{
 };
 use thiserror::Error;
 
-use crate::device::DisplayMode;
-
 pub const REG_INFO_FRAMEWORK_VER: u32 = 0xF100_0000;
 pub const REG_INFO_SYSCLK_HZ: u32 = 0xF100_0004;
 pub const REG_INFO_VIDEO_DIM: u32 = 0xF100_0100;
@@ -320,8 +318,9 @@ where
         Ok((self.read_u32(REG_STATUS_CART_SWITCH)? & 1) != 0)
     }
 
-    pub fn set_display_mode(&mut self, new_mode: DisplayMode) -> Result<(), Error> {
-        self.write_u32(REG_CTRL_DOCK, (new_mode == DisplayMode::External) as u32)
+    pub fn set_dock_state(&mut self, docked: bool, use_builtin_screen: bool) -> Result<(), Error> {
+        let val = (docked as u32) | ((use_builtin_screen as u32) << 1);
+        self.write_u32(REG_CTRL_DOCK, val)
     }
 }
 

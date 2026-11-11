@@ -90,10 +90,16 @@ mod settings {
 
     pub static PAGE_DOCK: Page = Page {
         name: "Dock",
-        entries: &[Entry::Checkbox {
-            name: "Swap A/B and X/Y",
-            key: &keys::DOCK_SWAP_ABXY,
-        }],
+        entries: &[
+            Entry::Checkbox {
+                name: "Swap A/B and X/Y",
+                key: &keys::DOCK_SWAP_ABXY,
+            },
+            Entry::Checkbox {
+                name: "Use built-in screen when docked",
+                key: &keys::DOCK_USE_BUILTIN_SCREEN,
+            },
+        ],
     };
 
     pub static PAGE_CORE_GB: Page = Page {

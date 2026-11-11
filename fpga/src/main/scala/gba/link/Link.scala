@@ -225,6 +225,7 @@ class Link extends Module {
     val regDataOut = Reg(Bool())
     val regShiftIn = Reg(UInt(32.W))
     val regShiftOut = Reg(UInt(32.W))
+    val regSampleDelay = RegInit(0.U(3.W))
     when (io.enable && prevMode =/= Link.Mode.Normal) {
       regBusy := false.B
     }
@@ -261,6 +262,7 @@ class Link extends Module {
       regClockCounter := 0.U
       regClockOut := true.B
       regDataOut := siocntLo.soIdle
+      regSampleDelay := 0.U
       when (transfer32) {
         regShiftOut := Cat(regDataB1, regDataB0)
       } .otherwise {
@@ -271,6 +273,7 @@ class Link extends Module {
     when (io.enable && regBusy) {
       val clockRising = WireDefault(false.B)
       val clockFalling = WireDefault(false.B)
+      val doSample = WireDefault(false.B)
 
       // Control master clock
       when (isMaster) {
@@ -287,6 +290,11 @@ class Link extends Module {
             clockRising := true.B
           }
         }
+        // We delay SI by 3 cycles before sampling to match the delay from the
+        // SC out (1 cycle) -> SI in (2 cycles) path.
+        // This gives the other side enough time to respond at 2 MHz.
+        regSampleDelay := Cat(regSampleDelay, clockRising)
+        doSample := regSampleDelay(2)
       } .otherwise {
         when (io.port.in.sc && !prevPortIn.sc) {
           clockRising := true.B
@@ -294,6 +302,7 @@ class Link extends Module {
         when (!io.port.in.sc && prevPortIn.sc) {
           clockFalling := true.B
         }
+        doSample := clockRising
       }
 
       when (clockFalling) {
@@ -303,9 +312,9 @@ class Link extends Module {
         regShiftOut := regShiftOut << 1
       }
 
-      when (clockRising) {
+      when (doSample) {
         // Shift in
-        logger.debug("Rising clock")
+        logger.debug("Sample (shift in)")
         val nextRegShiftIn = Cat(regShiftIn, io.port.in.si)
         regShiftIn := nextRegShiftIn
 

@@ -2,7 +2,7 @@ package net.gamebub.framework.interface
 
 import chisel3._
 
-object InputV0 {
+object InputBasicV0 {
   class Buttons extends Bundle {
     val a = Bool()
     val b = Bool()
@@ -19,7 +19,7 @@ object InputV0 {
   }
 }
 
-class InputV0(
+class InputBasicV0(
 ) extends Bundle {
-  val buttons = Input(new InputV0.Buttons())
+  val buttons = Input(new InputBasicV0.Buttons())
 }

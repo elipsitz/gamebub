@@ -108,7 +108,7 @@ class HandheldGba extends Module with Core {
     val audio = new AudioV0()
     val host = new HostV0()
     val pmod = new PmodV0()
-    val input = new InputV0()
+    val input = new InputBasicV0()
     val vibrate = new VibrateV0()
     val cartridge = new CartridgePortV0()
     val link = new LinkPortV0()

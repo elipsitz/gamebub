@@ -146,7 +146,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     val hdmiCy = Input(UInt(10.W))
 
     /** Raw button input, not registered or inverted. */
-    val buttons = Input(new InputV0.Buttons)
+    val buttons = Input(new InputBasicV0.Buttons)
 
     // Cartridge I/O
     val cartridge3V3Enable = Output(Bool())
@@ -296,9 +296,9 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   }
 
   // Input
-  val coreInput = Wire(new InputV0.Buttons)
+  val coreInput = Wire(new InputBasicV0.Buttons)
   core.getInterface("input") match {
-    case Some(input: InputV0) => {
+    case Some(input: InputBasicV0) => {
       input.buttons := coreInput
     }
     case Some(x) => throw new CoreException("Unknown 'input': " + x.getClass())
@@ -436,7 +436,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   }))
   val controlInterruptEnable = RegInit(0.U.asTypeOf(new HandheldInterrupts))
   val controlInterruptPending = RegInit(0.U.asTypeOf(new HandheldInterrupts))
-  val controlButtonForce = RegInit(0.U.asTypeOf(new InputV0.Buttons))
+  val controlButtonForce = RegInit(0.U.asTypeOf(new InputBasicV0.Buttons))
   val controlDock = RegInit(0.U.asTypeOf(new Bundle {
     /** Use the built-in screen even when docked */
     val useInternalScreen = Bool()
@@ -452,13 +452,13 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   val controlCommandCore = RegInit(0.U.asTypeOf(Output(new HostV0.CommandChannel)))
 
   val controlButtonRemap = RegInit(VecInit(
-    Seq.tabulate((new InputV0.Buttons).getWidth)(i =>
-      i.U(log2Ceil(new(InputV0.Buttons).getWidth).W)
+    Seq.tabulate((new InputBasicV0.Buttons).getWidth)(i =>
+      i.U(log2Ceil(new(InputBasicV0.Buttons).getWidth).W)
     )
   ))
 
   /// Synchronized physical button state (without MCU force override)
-  val buttonState = Wire(new InputV0.Buttons)
+  val buttonState = Wire(new InputBasicV0.Buttons)
 
   val registerMap = RegisterMap(
     addressWidth = 16,
@@ -559,7 +559,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   //////////////////////////////////
   {
     // Invert and synchronize buttons
-    val regButtons = RegNext(RegNext(~io.buttons.asUInt)).asTypeOf(new InputV0.Buttons)
+    val regButtons = RegNext(RegNext(~io.buttons.asUInt)).asTypeOf(new InputBasicV0.Buttons)
     buttonState := regButtons
 
     when (regButtons.asUInt =/= RegNext(regButtons.asUInt)) {
@@ -580,9 +580,9 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   }
 
   // Only pass input through when the core is focused
-  val buttonFilter = Module(new ButtonFilter(new InputV0.Buttons))
+  val buttonFilter = Module(new ButtonFilter(new InputBasicV0.Buttons))
   buttonFilter.io.enable := controlCoreFocus
-  buttonFilter.io.input := (remappedButtons | controlButtonForce.asUInt).asTypeOf(new InputV0.Buttons)
+  buttonFilter.io.input := (remappedButtons | controlButtonForce.asUInt).asTypeOf(new InputBasicV0.Buttons)
   coreInput := buttonFilter.io.output
 
   val vibrateEnabled = controlCoreFocus && controlVibrate.enable && !controlDock.docked

@@ -25,7 +25,7 @@ FILES = [
             "CartridgePortV0",
             "ClocksV0",
             "HostV0",
-            "InputV0",
+            "InputBasicV0",
             "LinkPortV0",
             "PmodV0",
             "SdramV0",

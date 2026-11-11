@@ -1,8 +1,17 @@
 The Game Bub HDL source code, from which this framework is derived,
-is normally licensed under the
-CERN Open Hardware Licence Version 2 - Strongly Reciprocal (CERN-OHL-S).
+is licensed under the CERN Open Hardware License Version 2 -
+Strongly Reciprocal (CERN-OHL-S-2.0).
 
-However, provided you are using the framework unmodified, you are also
-granted a license to use the Game Bub Framework under the
-CERN Open Hardware Licence Version 2 - Weakly Reciprocal (CERN-OHL-W),
-which does not require licensing combined works under the same license.
+Additionally, you may elect to use one of the following alternate
+license options:
+
+1. Provided you use the Game Bub Framework as an unmodified whole, and your
+   core interfaces with it solely through the documented framework interfaces
+   in `net.gamebub.framework`, you are granted a license to use the
+   Game Bub Framework under the CERN Open Hardware Licence Version 2 -
+   Weakly Reciprocal (CERN-OHL-W-2.0).
+
+2. Alternatively (for example, for GPL compatibility), you may use, modify,
+   and distribute the Game Bub Framework under the terms of the
+   GNU General Public License, version 2 or any later version
+   (GPL-2.0-or-later).

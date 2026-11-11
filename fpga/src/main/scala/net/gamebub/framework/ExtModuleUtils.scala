@@ -34,6 +34,12 @@ object ExtModuleUtils {
             inner(element, if (prefix.isEmpty) name else s"${prefix}_$name")
           }
         }
+
+        case v: Vec[_] => {
+          v.zipWithIndex.flatMap { case (element, index) =>
+            inner(element, if (prefix.isEmpty) s"$index" else s"${prefix}_$index")
+          }
+        }
           
         case e: Element => {
           val direction = DataMirror.directionOf(e) match {
@@ -41,10 +47,15 @@ object ExtModuleUtils {
             case ActualDirection.Output => "output"
             case _                      => ???
           }
+
+          val typeStr = e match {
+            case _: SInt => "logic signed"
+            case _       => "logic       "
+          }
           
           val width = e.widthOption.getOrElse(1)
           val widthStr = if (width > 1) s"[${width - 1}:0]" else ""
-          Seq(f"  $direction logic $widthStr%-6s $prefix")
+          Seq(f"  $direction $typeStr $widthStr%-6s $prefix")
         }
       }
     }

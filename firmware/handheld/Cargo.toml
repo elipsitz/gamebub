@@ -1,3 +1,5 @@
+cargo-features = ["trim-paths"]
+
 [package]
 name = "handheld"
 version = "1.0.3"
@@ -12,10 +14,12 @@ harness = false   # do not use the built in cargo test harness -> resolve rust-a
 
 [profile.release]
 opt-level = "s"
+trim-paths = "object"
 
 [profile.dev]
 debug = true    # Symbols are nice and they don't increase the size on Flash
 opt-level = "z"
+trim-paths = "object"
 
 [features]
 default = ["std", "embassy", "esp-idf-svc/native"]

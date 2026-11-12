@@ -12,6 +12,7 @@ rustflags = [
 
 [unstable]
 build-std = ["std", "panic_abort"]
+trim-paths = true
 
 [env]
 MCU = "esp32s3"

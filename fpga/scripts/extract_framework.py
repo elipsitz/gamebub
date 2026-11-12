@@ -43,6 +43,7 @@ FILES = [
     ("src/main/scala/platform/handheld/display/ILI9488.scala", None),
     ("src/main/scala/platform/handheld/display/ILI9806E.scala", None),
     ("src/main/scala/platform/handheld/display/ST7262E43.scala", None),
+    ("src/main/scala/platform/handheld/input/HandheldInput.scala", None),
     ("src/main/scala/platform/handheld/spi/SpiReceiver.scala", None),
     ("src/main/scala/platform/handheld/spi/SpiReceiverFifo.scala", None),
     ("src/main/scala/lib/mem/MemoryInterface.scala", None),

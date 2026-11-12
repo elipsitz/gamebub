@@ -4,11 +4,12 @@ import chisel3._
 import chisel3.util._
 import _root_.circt.stage.ChiselStage
 import lib.mem.{MemoryInterface, MemoryMap, RegisterMap}
-import lib.util.{FractionalDivider, ButtonFilter}
+import lib.util.FractionalDivider
 import lib.video.{Color, ColorARGB, ColorRGB}
 import net.gamebub.framework.{Core, CoreException}
 import net.gamebub.framework.interface._
 import platform.handheld.display._
+import platform.handheld.input.HandheldInput
 import platform.handheld.spi.SpiReceiverFifo
 import xilinx.{XpmCdcHandshake, XpmCdcSingle, XpmCdcSyncRst}
 
@@ -296,15 +297,8 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   }
 
   // Input
-  val coreInput = Wire(new InputBasicV0.Buttons)
-  core.getInterface("input") match {
-    case Some(input: InputBasicV0) => {
-      input.buttons := coreInput
-    }
-    case Some(x) => throw new CoreException("Unknown 'input': " + x.getClass())
-    case None => {}
-  }
-  
+  val input = HandheldInput(core.getInterface("input"))
+
   // Vibrate
   val coreVibrate = Wire(VibrateV0.Mode())
   core.getInterface("vibrate") match {
@@ -436,7 +430,6 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   }))
   val controlInterruptEnable = RegInit(0.U.asTypeOf(new HandheldInterrupts))
   val controlInterruptPending = RegInit(0.U.asTypeOf(new HandheldInterrupts))
-  val controlButtonForce = RegInit(0.U.asTypeOf(new InputBasicV0.Buttons))
   val controlDock = RegInit(0.U.asTypeOf(new Bundle {
     /** Use the built-in screen even when docked */
     val useInternalScreen = Bool()
@@ -457,7 +450,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     )
   ))
 
-  /// Synchronized physical button state (without MCU force override)
+  /// Synchronized physical button state
   val buttonState = Wire(new InputBasicV0.Buttons)
 
   val registerMap = RegisterMap(
@@ -466,13 +459,15 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     entries = Seq(
       // Read-only informational registers
       // Framework version
-      0x0000 -> RegisterMap.Entry.r("hB0000002".U),
+      0x0000 -> RegisterMap.Entry.r("hB0000003".U),
       // System clock frequency (Hz)
       0x0004 -> RegisterMap.Entry.r(clockSystemHz.U),
       // Video dimensions
       0x0100 -> RegisterMap.Entry.r(Cat(videoWidth.U(16.W), videoHeight.U(16.W))),
       // Video color depth
       0x0104 -> RegisterMap.Entry.r(Cat(videoColorDepthR.U(8.W), videoColorDepthG.U(8.W), videoColorDepthB.U(8.W))),
+      // Input capabilities
+      0x0108 -> RegisterMap.Entry.r(input.capabilities.U),
 
       // Framework control
       0x1000 -> RegisterMap.Entry.rw(controlInterruptEnable),
@@ -486,7 +481,6 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
           }
         ),
       ),
-      0x1008 -> RegisterMap.Entry.w(controlButtonForce),
       0x100C -> RegisterMap.Entry.w(controlDock),
       0x1010 -> RegisterMap.Entry.w(controlCoreFocus),
       0x1014 -> RegisterMap.Entry.w(controlVibrate),
@@ -497,6 +491,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
       0x1104 -> RegisterMap.Entry.rw(controlCommandCore),
 
       // 0x1200 to 0x12FF: button remap
+      // 0x1400 to 0x143F: input slots
 
       // Framework status
       0x2000 -> RegisterMap.Entry.r(buttonState),
@@ -516,6 +511,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
         ),
       ),
     )
+    ++ input.registerEntries
   )
 
   val overlayInterface = Wire(new MemoryInterface(addressWidth = 18, dataWidth = 16))
@@ -568,22 +564,18 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     }
   }
 
-  // Apply remap registers
-  val remappedButtons = {
+  // Apply remap registers and drive core input
+  {
     val n = controlButtonRemap.length
     val raw = VecInit(buttonState.asUInt.asBools :+ false.B)
     val remappedVec = VecInit(Seq.tabulate(n) { i =>
       val source = controlButtonRemap(i)
       raw(Mux(source < n.U, source, n.U))
     })
-    remappedVec.asUInt
+    input.handheldButtons := remappedVec.asUInt.asTypeOf(new InputBasicV0.Buttons)
   }
-
-  // Only pass input through when the core is focused
-  val buttonFilter = Module(new ButtonFilter(new InputBasicV0.Buttons))
-  buttonFilter.io.enable := controlCoreFocus
-  buttonFilter.io.input := (remappedButtons | controlButtonForce.asUInt).asTypeOf(new InputBasicV0.Buttons)
-  coreInput := buttonFilter.io.output
+  input.docked := controlDock.docked
+  input.coreFocus := controlCoreFocus
 
   val vibrateEnabled = controlCoreFocus && controlVibrate.enable && !controlDock.docked
   io.vibrate := RegNext(coreVibrate === VibrateV0.Mode.On && vibrateEnabled)

@@ -26,6 +26,7 @@ FILES = [
             "ClocksV0",
             "HostV0",
             "InputBasicV0",
+            "InputExtendedV0",
             "LinkPortV0",
             "PmodV0",
             "SdramV0",

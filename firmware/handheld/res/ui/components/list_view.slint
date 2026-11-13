@@ -9,23 +9,41 @@ export component ListViewBase inherits Rectangle {
 
     private property <bool> has-scrollbar: area.viewport-height > area.height;
     private property <length> scrollbar-width: 2px;
-    private property <length> item-height: area.viewport-height / self.num-items;
+    private property <length> item-height: self.num-items > 0 ? area.viewport-height / self.num-items : 0px;
     private property <int> into-view-item: 0;
     private property <length> into-view-item-y: root.item-y(root.into-view-item);
     callback on-item-selected(/* selected-item */ int);
     callback on-item-focused(/* focused-item*/ int);
+
+    init => {
+        bring-into-view(focus-item);
+    }
+
+    changed num-items => {
+        if (num-items > 0) {
+            if (focus-item < 0 || focus-item >= num-items) {
+                fix-focus-item();
+            } else {
+                bring-into-view(focus-item);
+            }
+        }
+    }
 
     changed focus-item => {
         fix-focus-item();
     }
 
     public function fix-focus-item() {
+        if (num-items <= 0) {
+            return;
+        }
         if (!wrap) {
             if (focus-item < 0) {
                 focus-item = 0;
             } else if (focus-item >= num-items) {
                 focus-item = num-items - 1;
             }
+            bring-into-view(focus-item);
             return;
         }
         root.unselect();
@@ -42,7 +60,7 @@ export component ListViewBase inherits Rectangle {
     }
 
     function bring-into-view(index: int) {
-        if (index < 0 || index >= num-items) {
+        if (index < 0 || index >= num-items || area.height <= 0px || area.viewport-height <= 0px) {
             return;
         }
         into-view-item = index;

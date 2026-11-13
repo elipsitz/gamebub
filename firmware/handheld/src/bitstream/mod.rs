@@ -56,7 +56,6 @@ pub fn program_fpga(path: &Path) {
     device.apply_dock_state().unwrap();
     device.fpga.enable_interrupt(fpga::Irq::Button).unwrap();
     ui::send(ui::Message::InputState(device.get_input_state().unwrap()));
-    ui::send(ui::Message::Redraw);
     led::LedController::set_behavior(led::LedBehavior::OFF);
 
     if let DisplayMode::Internal = display_mode {
@@ -85,4 +84,5 @@ fn heatshrink_decompress_stream(file: File) -> impl Read {
 
 pub fn program_boot() {
     program_fpga(&crate::util::get_system_file_path("boot.bit.hs"));
+    ui::send(ui::Message::Redraw);
 }

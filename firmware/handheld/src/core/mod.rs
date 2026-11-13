@@ -277,6 +277,7 @@ impl CoreManager {
         // Wait for the core to be ready for setup.
         self.poll_core_status(command::STATUS_SETUP, SETUP_TIMEOUT)?;
         ui::send(ui::Message::EnterGame);
+        ui::send(ui::Message::Redraw);
 
         // Read core runtime metadata
         let caps = Device::lock()

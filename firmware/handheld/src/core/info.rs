@@ -191,16 +191,13 @@ pub fn list_cores() -> Vec<CoreListEntry> {
                 continue;
             }
 
-            let mut path = entry.path();
-            path.push("core.json");
-
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(e) => {
-                    log::warn!("Failed to open core file {}: {e:?}", path.display());
-                    continue;
-                }
+            let file_name = entry.file_name();
+            let Some(folder_name) = file_name.to_str() else {
+                continue;
             };
+            if folder_name == "Game-Bub.GB" || folder_name == "Game-Bub.GBA" {
+                continue;
+            }
 
             /// Helper struct to extract only high-level info from core
             #[derive(Deserialize)]
@@ -208,15 +205,22 @@ pub fn list_cores() -> Vec<CoreListEntry> {
                 metadata: CoreListEntry,
             }
 
-            let reader = BufReader::with_capacity(256, file);
-            match serde_json::from_reader::<_, MinimalCoreInfo>(reader) {
-                Ok(info) => cores.push(info.metadata),
+            let info = match try_read_json::<MinimalCoreInfo>(&entry.path(), "core.json") {
+                Ok(Some(info)) => info.metadata,
+                Ok(None) => continue,
                 Err(e) => {
-                    let filename = path.file_name().unwrap_or_default();
-                    log::warn!("Error parsing core file {filename:?}: {e:?}");
+                    log::warn!("{folder_name}: {e}");
                     continue;
                 }
             };
+            if info.id.as_str() != folder_name {
+                log::warn!(
+                    "Core ID '{}' does not match folder '{folder_name}'",
+                    info.id
+                );
+                continue;
+            }
+            cores.push(info);
         }
     }
 
@@ -277,25 +281,43 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         files: Vec<CoreFile>,
     }
 
+    if id.is_empty() || id == "." || id == ".." || id.contains('/') {
+        return Err(format!("Invalid core ID '{id}'"));
+    }
+
     let mut core_dir = PathBuf::from(DIR_CORES);
     core_dir.push(id);
 
     let json_core: JsonCoreInfo = try_read_json(&core_dir, "core.json")?
         .ok_or_else(|| format!("Missing core.json in /cores/{id}"))?;
 
+    if json_core.metadata.id.as_str() != id {
+        return Err(format!(
+            "core.json: metadata.id '{}' does not match dir '{id}'",
+            json_core.metadata.id
+        ));
+    }
+    if json_core.metadata.name.trim().is_empty() || json_core.metadata.author.trim().is_empty() {
+        return Err("core.json: metadata name and author cannot be empty".into());
+    }
+
     // Find the right bitstream (TODO: use a visitor that extracts the right one).
     // https://serde.rs/stream-array.html
+    let target = get_device_target();
     let bitstream = json_core
         .bitstreams
         .iter()
-        .find_map(|b| {
-            if b.target.as_str() == get_device_target() && b.filename.ends_with(".bit") {
-                Some(b.filename)
-            } else {
-                None
-            }
-        })
-        .ok_or("No compatible bitstream")?;
+        .find_map(|b| (b.target.as_str() == target).then_some(b.filename))
+        .ok_or_else(|| format!("core.json: no bitstream for target '{target}'"))?;
+    if !bitstream.ends_with(".bit") || !validate_subpath(bitstream.as_str()) {
+        return Err(format!(
+            "core.json: invalid bitstream filename '{bitstream}'"
+        ));
+    }
+    let bitstream_path = core_dir.join(bitstream.as_str());
+    if !bitstream_path.is_file() {
+        return Err(format!("core.json: bitstream '{bitstream}' not found"));
+    }
 
     let settings = try_read_json::<JsonSettings>(&core_dir, "settings.json")?
         .map(|s| s.settings)
@@ -312,10 +334,18 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         uses_cartridge: json_core.hardware.cartridge_enable,
         is_built_in: false,
         files,
-        bitstream: core_dir.join(bitstream),
+        bitstream: bitstream_path,
         settings,
         core_dir,
     })
+}
+
+fn validate_subpath(path: &str) -> bool {
+    !path.is_empty()
+        && !path.contains('\\')
+        && path
+            .split('/')
+            .all(|s| !s.is_empty() && s != "." && s != "..")
 }
 
 fn try_read_json<T: serde::de::DeserializeOwned>(

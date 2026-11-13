@@ -7,7 +7,7 @@ use crate::core::CoreManager;
 use crate::device::drivers::fpga;
 use crate::device::Device;
 
-use crate::input::InputManager;
+use crate::input::{GamepadId, InputManager, InputState};
 use crate::{kvs, ui};
 
 #[derive(Debug)]
@@ -25,6 +25,12 @@ pub enum Message {
     },
     /// The handheld has undocked
     DockEnd,
+    /// A gamepad connected
+    GamepadConnected { id: GamepadId, has_analog: bool },
+    /// A gamepad disconnected
+    GamepadDisconnected(GamepadId),
+    /// Gamepad input event
+    GamepadInput(GamepadId, InputState),
 
     /// Run a cartridge
     RunCartridge,
@@ -128,6 +134,15 @@ fn dispatch(message: Message) {
             ui::send(ui::Message::DockEnd);
             InputManager::lock().remove_all_gamepads();
             Device::lock().set_docked(false).unwrap();
+        }
+        Message::GamepadConnected { id, has_analog } => {
+            InputManager::lock().add_gamepad(id, has_analog);
+        }
+        Message::GamepadDisconnected(id) => {
+            InputManager::lock().remove_gamepad(id);
+        }
+        Message::GamepadInput(id, state) => {
+            InputManager::lock().update_gamepad(id, state);
         }
         Message::IdleTimerExpired => {
             // If the idle timer expires during setup, just power off.

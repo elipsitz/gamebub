@@ -19,10 +19,10 @@ pub const REG_INFO_FRAMEWORK_VER: u32 = 0xF100_0000;
 pub const REG_INFO_SYSCLK_HZ: u32 = 0xF100_0004;
 pub const REG_INFO_VIDEO_DIM: u32 = 0xF100_0100;
 pub const REG_INFO_VIDEO_DEPTH: u32 = 0xF100_0104;
+pub const REG_INFO_INPUT_CAPS: u32 = 0xF100_0108;
 
 pub const REG_CTRL_IRQ_ENABLE: u32 = 0xF100_1000;
 pub const REG_CTRL_IRQ_PENDING: u32 = 0xF100_1004;
-pub const REG_CTRL_BUTTON_FORCE: u32 = 0xF100_1008;
 pub const REG_CTRL_DOCK: u32 = 0xF100_100C;
 pub const REG_CTRL_FOCUS: u32 = 0xF100_1010;
 pub const REG_CTRL_VIBRATE: u32 = 0xF100_1014;
@@ -30,6 +30,8 @@ pub const REG_CTRL_VIDEO_FILTER: u32 = 0xF100_1018;
 
 pub const REG_CTRL_CMD_HOST: u32 = 0xF100_1100;
 pub const REG_CTRL_CMD_CORE: u32 = 0xF100_1104;
+
+pub const REG_CTRL_INPUT_SLOT_BASE: u32 = 0xF100_1400;
 
 pub const REG_STATUS_BUTTON: u32 = 0xF100_2000;
 pub const REG_STATUS_CART_SWITCH: u32 = 0xF100_2004;
@@ -296,6 +298,18 @@ where
         let command = SpiCommand::new(FpgaSpiWordSize::Bits32);
         let data = data.to_le_bytes();
         self.spi_write(None, command, address, &data)
+    }
+
+    /// Write an input slot (buttons, sticks, triggers).
+    pub fn write_input_slot(&mut self, slot: usize, words: [u32; 3]) -> Result<(), Error> {
+        let address = REG_CTRL_INPUT_SLOT_BASE + (slot as u32) * 0x10;
+        let command = SpiCommand::new(FpgaSpiWordSize::Bits32);
+        self.spi_write(
+            None,
+            command,
+            address,
+            words.map(u32::to_le_bytes).as_flattened(),
+        )
     }
 
     pub fn read_u32(&mut self, address: u32) -> Result<u32, Error> {

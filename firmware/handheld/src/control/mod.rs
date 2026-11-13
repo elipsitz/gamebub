@@ -91,44 +91,44 @@ pub fn handle_control_out(request: &Request, buf: &[u8]) -> Result<(), ()> {
             Ok(())
         }
         REQUEST_GAMEPAD_CONNECT => {
-            // 4 byte: slot
-            // 4 byte: reserved
+            // 4 byte: id
+            // 4 byte: flags
+            //   bit 0: has_analog
             // 8 byte: gamepad device ID
-            // 32 byte: model name (\0 terminated)
+            // 32 byte: reserved / model name (\0 terminated)
             if buf.len() < 48 {
                 return Err(());
             }
-            let slot = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+            let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+            let flags = u32::from_le_bytes(buf[4..8].try_into().unwrap());
+            let has_analog = (flags & (1 << 0)) != 0;
             let device_id: [u8; 8] = buf[8..16].try_into().unwrap();
             let model = str::from_utf8(&buf[16..48])
                 .unwrap_or_default()
                 .trim_end_matches('\0');
-            ui::send(ui::Message::GamepadConnected(GamepadId(slot)));
-            ui::send(ui::Message::Notification(ui::Notification::new_short(
-                "Gamepad connected".to_string(),
-            )));
             log::info!("Gamepad model='{model}' id={device_id:?}");
+            worker::send(worker::Message::GamepadConnected {
+                id: GamepadId(id),
+                has_analog,
+            });
             Ok(())
         }
         REQUEST_GAMEPAD_DISCONNECT => {
-            // 4 byte: slot
+            // 4 byte: id
             if buf.len() < 4 {
                 return Err(());
             }
-            let slot = u32::from_le_bytes(buf[0..4].try_into().unwrap());
-            ui::send(ui::Message::GamepadDisconnected(GamepadId(slot)));
-            ui::send(ui::Message::Notification(ui::Notification::new_short(
-                "Gamepad disconnected".to_string(),
-            )));
+            let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+            worker::send(worker::Message::GamepadDisconnected(GamepadId(id)));
             Ok(())
         }
         REQUEST_GAMEPAD_DATA => {
-            // 4 byte: slot
+            // 4 byte: id
             // 16 byte: gamepad data
             if buf.len() < 20 {
                 return Err(());
             }
-            let slot = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+            let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
             // (A B X Y) (Up Down Right Left) (System Select Start Capture(?)) (L1 R1 L2 R2 L3 R3)
             let data = &buf[4..20];
             let data = InputState {
@@ -160,7 +160,7 @@ pub fn handle_control_out(request: &Request, buf: &[u8]) -> Result<(), ()> {
                 axis_ry: i16::from_le_bytes(data[12..14].try_into().unwrap()),
                 axis_rz: i16::from_le_bytes(data[14..16].try_into().unwrap()),
             };
-            ui::send(ui::Message::GamepadInput(GamepadId(slot), data));
+            worker::send(worker::Message::GamepadInput(GamepadId(id), data));
             Ok(())
         }
         _ => Err(()),

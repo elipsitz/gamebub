@@ -9,6 +9,7 @@ use std::{
 use crate::{
     bitstream,
     device::{drivers::fpga, Device},
+    input::InputManager,
     ui,
 };
 
@@ -221,6 +222,8 @@ impl CoreManager {
         self.selected_files.clear();
         self.open_on_demand_file = None;
 
+        InputManager::lock().clear_core_input_caps();
+
         let _ = Device::lock()
             .fpga
             .disable_interrupt(fpga::Irq::CoreRequest);
@@ -274,6 +277,13 @@ impl CoreManager {
         // Wait for the core to be ready for setup.
         self.poll_core_status(command::STATUS_SETUP, SETUP_TIMEOUT)?;
         ui::send(ui::Message::EnterGame);
+
+        // Read core runtime metadata
+        let caps = Device::lock()
+            .fpga
+            .read_u32(fpga::REG_INFO_INPUT_CAPS)
+            .unwrap();
+        InputManager::lock().set_core_input_caps(caps);
 
         let cart_power = match self.core_info.as_ref().unwrap().uses_cartridge {
             CoreCartridgeMode::No => false,
@@ -339,6 +349,7 @@ impl CoreManager {
         assert!(self.stage == Stage::LoadBitstream);
 
         bitstream::program_fpga(&self.core_info.as_ref().unwrap().bitstream);
+
         if let Some(core_handler) = self.core_handler.get_mut() {
             core_handler.on_after_program();
         }

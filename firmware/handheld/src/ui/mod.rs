@@ -38,7 +38,6 @@ cfg_if::cfg_if! {
 
 pub enum Message {
     /// The state of the buttons have changed.
-    /// TODO: combine this with InputState/Gamepad handling
     Button(ButtonMap),
     /// Battery status has changed.
     BatteryStatus { level: f32 },
@@ -50,12 +49,6 @@ pub enum Message {
     FatalError(String),
     /// Internal input state changed
     InputState(input::InputState),
-    /// Gamepad connected
-    GamepadConnected(input::GamepadId),
-    /// Gamepad disconnected
-    GamepadDisconnected(input::GamepadId),
-    /// Gamepad input event
-    GamepadInput(input::GamepadId, input::InputState),
     /// Show a notification
     Notification(Notification),
     /// Docked
@@ -283,9 +276,6 @@ impl UI {
                 self.root.invoke_set_screen(slint::ScreenId::Error);
             }
             Message::InputState(state) => InputManager::lock().update_state(state),
-            Message::GamepadConnected(id) => InputManager::lock().add_gamepad(id),
-            Message::GamepadDisconnected(id) => InputManager::lock().remove_gamepad(id),
-            Message::GamepadInput(id, state) => InputManager::lock().update_gamepad(id, state),
             Message::Notification(notification) => {
                 self.state
                     .borrow_mut()

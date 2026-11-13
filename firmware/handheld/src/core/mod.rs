@@ -104,8 +104,8 @@ impl CoreManager {
                 self.core_info.as_ref().unwrap()
             }
             Err(e) => {
-                // TODO show error to user?
                 log::error!("Error loading core '{id}': {e}");
+                ui::send(ui::Message::CoreLoadError(e));
                 return;
             }
         };

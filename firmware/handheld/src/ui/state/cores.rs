@@ -255,6 +255,7 @@ impl UiState {
     pub fn cores_set_error(&mut self, error: String) {
         let root = self.root.unwrap();
         let backend = root.global::<Backend>();
+        root.invoke_set_title("Cores".into());
         backend.set_core_error(error.into());
         backend.set_core_subscreen(CoreSubscreen::Error);
         root.invoke_set_screen(ScreenId::Cores);

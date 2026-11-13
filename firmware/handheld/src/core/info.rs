@@ -14,6 +14,9 @@ pub const DIR_CORES: &str = "/sdcard/cores/";
 const MAX_CORE_BITSTREAMS: usize = 16;
 const MAX_CORE_FILES: usize = 8;
 const MAX_CORE_SETTINGS: usize = 16;
+const FRAMEWORK_ADDR_START: u32 = 0xF000_0000;
+const MIN_TRANSFER_SPEED_KBS: u32 = 1_000;
+const MAX_TRANSFER_SPEED_KBS: u32 = 1_000_000;
 
 #[derive(Deserialize)]
 pub struct CoreListEntry {
@@ -326,6 +329,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
     let files = try_read_json::<JsonFiles>(&core_dir, "files.json")?
         .map(|f| f.files)
         .unwrap_or_default();
+    validate_files(&files)?;
 
     Ok(CoreInfo {
         id: json_core.metadata.id,
@@ -346,6 +350,74 @@ fn validate_subpath(path: &str) -> bool {
         && path
             .split('/')
             .all(|s| !s.is_empty() && s != "." && s != "..")
+}
+
+fn validate_files(files: &[CoreFile]) -> Result<(), String> {
+    let file_0 = files.iter().find(|f| f.id == 0);
+    for (i, f) in files.iter().enumerate() {
+        let id = f.id;
+        if files[..i].iter().any(|prev| prev.id == id) {
+            return Err(format!("files.json: duplicate file id {id}"));
+        }
+
+        let sources =
+            (f.filename.is_some() as u32) + (f.user_selected as u32) + (f.dependent_on_0 as u32);
+        if sources != 1 {
+            return Err(format!(
+                "files.json [id={id}]:\nmust set exactly one of filename, user_selected, or dependent_on_0"
+            ));
+        }
+
+        if f.extensions
+            .iter()
+            .any(|ext| ext.is_empty() || ext.starts_with('.') || ext.contains('/'))
+        {
+            return Err(format!("files.json [id={id}]:\ninvalid file extension"));
+        }
+        if f.user_selected && f.extensions.is_empty() {
+            return Err(format!(
+                "files.json [id={id}]:\nuser_selected requires extensions"
+            ));
+        }
+
+        if let Some(filename) = f.filename.as_ref() {
+            if !validate_subpath(filename.as_str()) {
+                return Err(format!(
+                    "files.json [id={id}]:\ninvalid filename '{filename}'"
+                ));
+            }
+        }
+
+        if f.dependent_on_0 {
+            let valid_f0 = id != 0
+                && !f.extensions.is_empty()
+                && file_0.is_some_and(|f0| f0.user_selected && (!f0.optional || f.optional));
+            if !valid_f0 {
+                return Err(format!(
+                    "files.json [id={id}]:\ninvalid dependent_on_0 configuration"
+                ));
+            }
+        }
+
+        if f.max_transfer_speed < MIN_TRANSFER_SPEED_KBS
+            || f.max_transfer_speed > MAX_TRANSFER_SPEED_KBS
+        {
+            return Err(format!(
+                "files.json [id={id}]:\ninvalid max_transfer_speed {}",
+                f.max_transfer_speed
+            ));
+        }
+
+        if !f.on_demand {
+            if f.address % 4 != 0 || f.address >= FRAMEWORK_ADDR_START {
+                return Err(format!(
+                    "files.json [id={id}]: invalid address 0x{:08X}",
+                    f.address
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn try_read_json<T: serde::de::DeserializeOwned>(

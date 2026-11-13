@@ -2,7 +2,6 @@ use std::{
     fs::File,
     io::{BufWriter, Read, Write},
     ops::DerefMut as _,
-    path::PathBuf,
     time::{Duration, Instant},
 };
 
@@ -70,10 +69,18 @@ impl CoreManager {
                 continue;
             }
 
+            self.selected_files[i] = path.clone();
             let path = match path {
                 Some(path) => path,
-                // Use an empty path. Open will fail and we'll clear it.
-                None if info.optional => PathBuf::new(),
+                None if info.optional => {
+                    if info.initialize {
+                        log::info!("No file selected for {}, clearing", info.label);
+                        self.clear_file_slot(info, &mut scratch)?;
+                    } else {
+                        log::info!("No file selected for {}, skipping", info.label);
+                    }
+                    continue;
+                }
                 // It shouldn't be possible to have no path for a required file.
                 None => panic!("Missing path for required file {}", info.label),
             };
@@ -81,7 +88,6 @@ impl CoreManager {
             log::info!("Load file {} from {}", info.label, path.display());
 
             let file = File::open(&path);
-            self.selected_files[i] = Some(path);
             let mut file = match file {
                 Ok(file) => file,
                 Err(_) if info.optional && info.initialize => {
@@ -229,14 +235,16 @@ impl CoreManager {
         }
 
         for (i, info) in core.files.iter().enumerate() {
-            if info.read_only {
+            if info.read_only || info.on_demand {
                 continue;
             }
             if self.run_cartridge && (info.id == 0 || info.dependent_on_0) {
                 continue;
             }
 
-            let path = self.selected_files[i].clone().unwrap();
+            let Some(path) = self.selected_files[i].clone() else {
+                continue;
+            };
             log::info!("Saving file {} to {}", info.label, path.display());
 
             let mut file_size = 0u32;

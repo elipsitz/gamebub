@@ -1,11 +1,19 @@
 use arrayvec::{ArrayString, ArrayVec};
 use serde::Deserialize;
 use slint::SharedString;
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{
+    fs::File,
+    io::{BufReader, ErrorKind},
+    path::{Path, PathBuf},
+};
 
 use crate::device::drivers::fpga;
 
 pub const DIR_CORES: &str = "/sdcard/cores/";
+
+const MAX_CORE_BITSTREAMS: usize = 16;
+const MAX_CORE_FILES: usize = 8;
+const MAX_CORE_SETTINGS: usize = 16;
 
 #[derive(Deserialize)]
 pub struct CoreListEntry {
@@ -251,6 +259,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
     #[derive(Deserialize)]
     struct JsonCoreInfo {
         metadata: JsonCoreMetadata,
+        #[serde(deserialize_with = "deserialize_bounded_vec::<_, _, MAX_CORE_BITSTREAMS>")]
         bitstreams: Vec<JsonCoreBitstream>,
         #[serde(default)]
         hardware: JsonCoreHardware,
@@ -258,24 +267,21 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
 
     #[derive(Deserialize)]
     struct JsonSettings {
+        #[serde(deserialize_with = "deserialize_bounded_vec::<_, _, MAX_CORE_SETTINGS>")]
         settings: Vec<CoreSetting>,
     }
 
     #[derive(Deserialize)]
     struct JsonFiles {
+        #[serde(deserialize_with = "deserialize_bounded_vec::<_, _, MAX_CORE_FILES>")]
         files: Vec<CoreFile>,
     }
 
     let mut core_dir = PathBuf::from(DIR_CORES);
     core_dir.push(id);
 
-    // Read core.json
-    let json_core: JsonCoreInfo = {
-        let file =
-            File::open(core_dir.join("core.json")).map_err(|_| "Failed to open core.json")?;
-        let reader = BufReader::with_capacity(256, file);
-        serde_json::from_reader(reader).map_err(|e| format!("Failed to parse core.json: {e}"))?
-    };
+    let json_core: JsonCoreInfo = try_read_json(&core_dir, "core.json")?
+        .ok_or_else(|| format!("Missing core.json in /cores/{id}"))?;
 
     // Find the right bitstream (TODO: use a visitor that extracts the right one).
     // https://serde.rs/stream-array.html
@@ -291,29 +297,13 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         })
         .ok_or("No compatible bitstream")?;
 
-    // Read settings.json
-    let settings = {
-        if let Ok(file) = File::open(core_dir.join("settings.json")) {
-            let reader = BufReader::with_capacity(256, file);
-            let settings: JsonSettings = serde_json::from_reader(reader)
-                .map_err(|e| format!("Failed to parse settings.json: {e}"))?;
-            settings.settings
-        } else {
-            Vec::new()
-        }
-    };
+    let settings = try_read_json::<JsonSettings>(&core_dir, "settings.json")?
+        .map(|s| s.settings)
+        .unwrap_or_default();
 
-    // Read files.json
-    let files = {
-        if let Ok(file) = File::open(core_dir.join("files.json")) {
-            let reader: BufReader<File> = BufReader::with_capacity(256, file);
-            let files: JsonFiles = serde_json::from_reader(reader)
-                .map_err(|e| format!("Failed to parse files.json: {e}"))?;
-            files.files
-        } else {
-            Vec::new()
-        }
-    };
+    let files = try_read_json::<JsonFiles>(&core_dir, "files.json")?
+        .map(|f| f.files)
+        .unwrap_or_default();
 
     Ok(CoreInfo {
         id: json_core.metadata.id,
@@ -328,6 +318,21 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
     })
 }
 
+fn try_read_json<T: serde::de::DeserializeOwned>(
+    core_dir: &Path,
+    filename: &str,
+) -> Result<Option<T>, String> {
+    let file = match File::open(core_dir.join(filename)) {
+        Ok(file) => file,
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("Failed to open {filename}: {e}")),
+    };
+    let reader = BufReader::with_capacity(256, file);
+    serde_json::from_reader(reader)
+        .map(Some)
+        .map_err(|e| format!("Invalid {filename}: {e}"))
+}
+
 fn get_device_target() -> &'static str {
     #[cfg(feature = "rev1")]
     const TARGET: &str = "gamebub_rev1";
@@ -339,6 +344,40 @@ fn get_device_target() -> &'static str {
     const TARGET: &str = "gamebub_rev4";
 
     TARGET
+}
+
+/// Serde helper to deserialize a Vec with an upper bound enforced during parsing.
+fn deserialize_bounded_vec<'de, D, T, const MAX: usize>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    struct Visitor<T, const MAX: usize>(Vec<T>);
+
+    impl<'de, T: Deserialize<'de>, const MAX: usize> serde::de::Visitor<'de> for Visitor<T, MAX> {
+        type Value = Vec<T>;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "a list with at most {MAX} items")
+        }
+
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(
+            mut self,
+            mut seq: A,
+        ) -> Result<Vec<T>, A::Error> {
+            while let Some(elem) = seq.next_element()? {
+                if self.0.len() == MAX {
+                    return Err(serde::de::Error::custom(format_args!(
+                        "too many items (max {MAX})"
+                    )));
+                }
+                self.0.push(elem);
+            }
+            Ok(self.0)
+        }
+    }
+
+    deserializer.deserialize_seq(Visitor::<T, MAX>(Vec::new()))
 }
 
 /// Serde helper to deserialize a u32, either from a hex string or a number

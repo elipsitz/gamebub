@@ -148,6 +148,16 @@ pub struct CoreSettingListItem {
     pub value: u32,
 }
 
+impl CoreSetting {
+    pub fn is_valid_value(&self, val: u32) -> bool {
+        match &self.inner {
+            CoreSettingType::Action { .. } => val == 0,
+            CoreSettingType::Checkbox { value } => *value != 0 && (val == 0 || val == *value),
+            CoreSettingType::List { items } => items.iter().any(|item| item.value == val),
+        }
+    }
+}
+
 impl CoreInfo {
     pub fn get_settings_path(&self) -> PathBuf {
         let mut p = PathBuf::from(super::DIR_SETTINGS);
@@ -325,6 +335,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
     let settings = try_read_json::<JsonSettings>(&core_dir, "settings.json")?
         .map(|s| s.settings)
         .unwrap_or_default();
+    validate_settings(&settings)?;
 
     let files = try_read_json::<JsonFiles>(&core_dir, "files.json")?
         .map(|f| f.files)
@@ -415,6 +426,28 @@ fn validate_files(files: &[CoreFile]) -> Result<(), String> {
                     f.address
                 ));
             }
+        }
+    }
+    Ok(())
+}
+
+fn validate_settings(settings: &[CoreSetting]) -> Result<(), String> {
+    for (i, s) in settings.iter().enumerate() {
+        let id = s.id;
+        if settings[..i].iter().any(|prev| prev.id == id) {
+            return Err(format!("settings.json: duplicate setting id {id}"));
+        }
+        if s.address % 4 != 0 || s.address >= FRAMEWORK_ADDR_START {
+            return Err(format!(
+                "settings.json [id={id}]:\ninvalid address 0x{:08X}",
+                s.address
+            ));
+        }
+        if !s.is_valid_value(s.default) {
+            return Err(format!(
+                "settings.json [id={id}]:\ninvalid default value 0x{:X}",
+                s.default
+            ));
         }
     }
     Ok(())

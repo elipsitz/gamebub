@@ -158,13 +158,13 @@ impl CoreManager {
             .settings
             .iter()
             .map(|setting| {
-                let value = settings.settings.iter().find(|x| x.0 == setting.id).map_or(
-                    setting.default,
-                    |x| {
-                        // TODO: check if this is actually a valid setting?
-                        x.1
-                    },
-                );
+                let value = settings
+                    .settings
+                    .iter()
+                    .find(|x| x.0 == setting.id)
+                    .map(|x| x.1)
+                    .filter(|&val| setting.is_valid_value(val))
+                    .unwrap_or(setting.default);
                 (setting.id, value)
             })
             .collect();

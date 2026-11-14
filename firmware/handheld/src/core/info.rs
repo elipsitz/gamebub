@@ -12,7 +12,7 @@ use crate::device::drivers::fpga;
 pub const DIR_CORES: &str = "/sdcard/cores/";
 
 const MAX_CORE_BITSTREAMS: usize = 16;
-const MAX_CORE_FILES: usize = 8;
+const MAX_CORE_FILES: usize = 16;
 const MAX_CORE_SETTINGS: usize = 16;
 const FRAMEWORK_ADDR_START: u32 = 0xF000_0000;
 const MIN_TRANSFER_SPEED_KBS: u32 = 1_000;

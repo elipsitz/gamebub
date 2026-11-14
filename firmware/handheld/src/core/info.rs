@@ -419,13 +419,11 @@ fn validate_files(files: &[CoreFile]) -> Result<(), String> {
             ));
         }
 
-        if !f.on_demand {
-            if f.address % 4 != 0 || f.address >= FRAMEWORK_ADDR_START {
-                return Err(format!(
-                    "files.json [id={id}]: invalid address 0x{:08X}",
-                    f.address
-                ));
-            }
+        if !f.on_demand && (f.address % 4 != 0 || f.address >= FRAMEWORK_ADDR_START) {
+            return Err(format!(
+                "files.json [id={id}]: invalid address 0x{:08X}",
+                f.address
+            ));
         }
     }
     Ok(())

@@ -911,16 +911,26 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     val framebufferX = RegInit(0.U(log2Ceil(videoWidth).W))
     val framebufferY = RegInit(0.U(log2Ceil(videoHeight).W))
     val framebufferWriteIndex = RegInit(1.U(1.W))
+    val regFrameStarted = RegInit(false.B)
     val regDropFrame = RegInit(false.B)
 
     val vblankEdge = coreVideo.vblank && !RegNext(coreVideo.vblank)
-    val vblankFallingEdge = !coreVideo.vblank && RegNext(coreVideo.vblank)
     val hblankEdge = coreVideo.hblank && !RegNext(coreVideo.hblank)
 
-    when (vblankFallingEdge) {
-      // If the core starts a frame while the display is still actively reading this buffer,
-      // drop the frame to prevent diagonal tearing across the active scanlines.
-      regDropFrame := framebufferWriteIndex === activeDisplayFrame
+    // If the core starts writing a frame while a rotated internal display is actively
+    // reading the same buffer, drop the *entire* frame to prevent diagonal tearing.
+    //
+    // However, skip this on HDMI (unrotated, free-running) and non-rotated displays
+    // (well, specifically the Rev 3 display) which cannot pause/resync in vblank.
+    //
+    // Latch the decision to drop on the first active pixel so that cores with
+    // a very short vblank period still allow the display driver to switch buffers.
+    val frameConflict = revision.displayRotate.B && !hdmiActive &&
+      (framebufferWriteIndex === activeDisplayFrame)
+    val dropFrame = Mux(!regFrameStarted, frameConflict, regDropFrame)
+    when (!coreVideo.vblank && coreVideo.dataEnable && !regFrameStarted) {
+      regFrameStarted := true.B
+      regDropFrame := frameConflict
     }
 
     val address = (framebufferY * videoWidth.U(10.W)) + framebufferX
@@ -929,7 +939,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     data.g := coreVideo.dataG
     data.b := coreVideo.dataB
     for (i <- 0 until 2) {
-      when (coreVideo.dataEnable && i.U === framebufferWriteIndex && !regDropFrame) {
+      when (coreVideo.dataEnable && i.U === framebufferWriteIndex && !dropFrame) {
         framebuffers(i).readwritePorts(0).enable := true.B
         framebuffers(i).readwritePorts(0).address := address
         framebuffers(i).readwritePorts(0).isWrite := true.B
@@ -942,6 +952,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
         regLastFrameComplete := framebufferWriteIndex
         framebufferWriteIndex := !framebufferWriteIndex
       }
+      regFrameStarted := false.B
       regDropFrame := false.B
     }
 

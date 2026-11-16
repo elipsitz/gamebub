@@ -12,6 +12,21 @@ import shutil
 FRAMEWORK_ROOT = Path(__file__).resolve().parent.parent
 MILL_PATH = FRAMEWORK_ROOT / "mill"
 
+EXTENSION_FILE_TYPES: dict[str, dict] = {
+    ".xdc": {"file_type": "xdc"},
+    ".v": {"file_type": "verilogSource"},
+    ".sv": {"file_type": "systemVerilogSource"},
+    ".vhd": {"file_type": "vhdlSource"},
+    ".vhdl": {"file_type": "vhdlSource"},
+    ".vh": {"file_type": "verilogSource", "is_include_file": True},
+    ".vinc": {"file_type": "verilogSource", "is_include_file": True},
+    ".inc": {"file_type": "verilogSource", "is_include_file": True},
+    ".svh": {"file_type": "systemVerilogSource", "is_include_file": True},
+    ".mem": {"file_type": "mem"},
+    ".dat": {"file_type": "mem"},
+    ".hex": {"file_type": "mem"},
+}
+
 @dataclass
 class Target:
     name: str
@@ -123,33 +138,31 @@ def build(
     if result.returncode != 0:
         sys.exit("Chisel build failed")
 
+    all_files: list[Path] = []
+
     # Collect files from Chisel output
     filelist_path = generate_root / "filelist.f"
     with open(filelist_path) as f:
-        for filename in f:
-            path = filelist_path.parent / filename.rstrip()
-            files.append(dict(name=path, file_type="systemVerilogSource"))
+        for line in f:
+            entry = line.strip()
+            if not entry:
+                continue
+            all_files.append(filelist_path.parent / entry)
 
     # Add additional target RTL files
-    additional_files = [FRAMEWORK_ROOT / f for f in target.files]
+    all_files.extend(FRAMEWORK_ROOT / f for f in target.files)
     for dir in additional_file_dirs:
         for (dir, _, dir_files) in os.walk(dir):
             dir = Path(dir)
             for file in dir_files:
-                additional_files.append(dir / file)
+                all_files.append(dir / file)
 
-    for file in additional_files:
-        file_extension = file.suffix
-        file_type = {
-            ".xdc": "xdc",
-            ".v": "verilogSource",
-            ".sv": "systemVerilogSource",
-            ".vhdl": "vhdlSource",
-        }.get(file_extension)
-        if not file_type:
+    for file in all_files:
+        spec = EXTENSION_FILE_TYPES.get(file.suffix.lower())
+        if not spec:
             print("WARNING: Skipping unknown file type:", file)
             continue
-        files.append(dict(name=file, file_type=file_type))
+        files.append({"name": file, **spec})
 
     # Make all file paths relative to build root.
     for f in files:

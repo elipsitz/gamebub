@@ -163,182 +163,16 @@ export component ListContainer inherits Rectangle {
     }
 }
 
-export component ListViewBase inherits Rectangle {
-    in property <int> num-items;
-    in property <bool> wrap: false;
-    in-out property <int> focus-item: 0;
-    in-out property <bool> item-selected: false;
-    in property <bool> disabled: false;
-
-    private property <bool> has-scrollbar: area.viewport-height > area.height;
-    private property <length> scrollbar-width: 2px;
-    private property <length> item-height: self.num-items > 0 ? area.viewport-height / self.num-items : 0px;
-    private property <int> into-view-item: 0;
-    private property <length> into-view-item-y: root.item-y(root.into-view-item);
-    callback on-item-selected(/* selected-item */ int);
-    callback on-item-focused(/* focused-item*/ int);
-
-    init => {
-        bring-into-view(focus-item);
-    }
-
-    changed num-items => {
-        if (num-items > 0) {
-            if (focus-item < 0 || focus-item >= num-items) {
-                fix-focus-item();
-            } else {
-                bring-into-view(focus-item);
-            }
-        }
-    }
-
-    changed focus-item => {
-        fix-focus-item();
-    }
-
-    public function fix-focus-item() {
-        if (num-items <= 0) {
-            return;
-        }
-        if (!wrap) {
-            if (focus-item < 0) {
-                focus-item = 0;
-            } else if (focus-item >= num-items) {
-                focus-item = num-items - 1;
-            }
-            bring-into-view(focus-item);
-            return;
-        }
-        root.unselect();
-        focus-item = mod(focus-item, num-items);
-        bring-into-view(focus-item);
-    }
-
-    pure function first-visible-item() -> int {
-        return min(root.num-items - 1, max(0, round(-area.viewport-y / root.item-height)));
-    }
-
-    pure function item-y(index: int) -> length {
-        return area.viewport-y + index * root.item-height;
-    }
-
-    function bring-into-view(index: int) {
-        if (index < 0 || index >= num-items || area.height <= 0px || area.viewport-height <= 0px) {
-            return;
-        }
-        into-view-item = index;
-
-        if (area.viewport-height <= area.height) {
-            area.viewport-y = 0;
-        }
-        if (into-view-item-y < 0) {
-            area.viewport-y += 0 - into-view-item-y;
-        }
-        if (into-view-item-y + item-height > area.height) {
-            area.viewport-y -= into-view-item-y + item-height - area.height;
-        }
-    }
-
-    protected function focus-up() {
-        if (!root.item-selected) {
-            root.focus-item = root.focus-item - 1;
-            fix-focus-item();
-            on-item-focused(root.focus-item);
-        }
-    }
-
-    protected function focus-down() {
-        if (!root.item-selected) {
-            root.focus-item = root.focus-item + 1;
-            fix-focus-item();
-            on-item-focused(root.focus-item);
-        }
-    }
-
-    protected function select-focus-item() {
-        root.item-selected = true;
-        root.on-item-selected(root.focus-item);
-    }
-
-    protected function unselect() {
-        root.item-selected = false;
-        root.focus();
-    }
-
-    forward-focus: i-focus-scope;
-    border-width: 1px;
-    border-color: black;
-
-    i-focus-scope := FocusScope {
-        area := Flickable {
-            x: 2px;
-            y: 2px;
-            width: root.has-scrollbar ? scroll-bar.x - scrollbar-width - 1px : parent.width - 4px;
-            height: parent.height - 4px;
-            viewport-height: contents.min-height;
-
-            highlight := Rectangle {
-                x: 0px;
-                y: root.focus-item * root.item-height;
-                width: parent.width;
-                height: root.item-height;
-                background: #bbb;
-
-                border-color: black;
-                border-width: root.item-selected ? 1px : 0px;
-            }
-
-            contents := VerticalLayout {
-                alignment: start;
-                @children
-            }
-        }
-
-        key-pressed(event) => {
-            if (disabled) {
-                return reject;
-            } else if (event.text == Key.UpArrow) {
-                root.focus-up();
-                return accept;
-            } else if (event.text == Key.DownArrow) {
-                root.focus-down();
-                return accept;
-            } else if (event.text == "a" && !event.repeat) {
-                if root.item-selected {
-                    root.unselect();
-                } else {
-                    root.select-focus-item();
-                }
-                return accept;
-            } else if (event.text == "b" && root.item-selected && !event.repeat) {
-                root.unselect();
-                return accept;
-            }
-            reject
-        }
-    }
-
-    scroll-bar := Rectangle {
-        visible: has-scrollbar;
-        x: parent.width - self.width - 2px;
-        y: 2px;
-        width: scrollbar-width;
-        height: parent.height - 4px;
-        inner := Rectangle {
-            y: (-area.viewport-y / area.viewport-height) * parent.height;
-            width: 100%;
-            height: (area.height / area.viewport-height) * parent.height;
-            background: black;
-        }
-    }
-}
-
-component TextListItem {
+component TextListItem inherits Rectangle {
     in property <string> text;
-    height: i-text.min-height + 2px;
+    in property <bool> focused;
+
+    background: root.focused ? #bbb : transparent;
 
     i-text := Text {
         x: 2px;
+        width: parent.width - 4px;
+        height: 100%;
         text: root.text;
         vertical-alignment: center;
         horizontal-alignment: left;
@@ -346,11 +180,48 @@ component TextListItem {
     }
 }
 
-export component TextListView inherits ListViewBase {
+component TextListViewBase inherits ListView {
     in property <[string]> model;
     num-items: model.length;
 
-    for item[index] in root.model: child-items := TextListItem {
+    for item[index] in root.model: TextListItem {
+        height: 20px;
         text: item;
+        focused: index == root.current-item;
+    }
+}
+
+export component TextListView inherits FocusScope {
+    in property <[string]> model;
+    in-out property <int> current-item <=> i-list.current-item;
+    in property <bool> wrap <=> i-list.wrap;
+
+    callback on-item-selected(/* selected-item */ int);
+
+    ListContainer {
+        width: 100%;
+        height: 100%;
+        viewport-y: i-list.viewport-y;
+        viewport-height: i-list.viewport-height;
+        visible-height: i-list.visible-height;
+
+        i-list := TextListViewBase {
+            model: root.model;
+            current-item: 0;
+        }
+    }
+
+    key-pressed(event) => {
+        if (event.text == Key.UpArrow) {
+            i-list.select-up();
+            return accept;
+        } else if (event.text == Key.DownArrow) {
+            i-list.select-down();
+            return accept;
+        } else if (event.text == "a" && !event.repeat && i-list.has-selection()) {
+            root.on-item-selected(i-list.current-item);
+            return accept;
+        }
+        reject
     }
 }

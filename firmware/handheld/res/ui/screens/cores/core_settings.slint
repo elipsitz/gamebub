@@ -1,8 +1,7 @@
 import { Backend } from "../../common.slint";
-import { ListViewBase } from "../../components/list_view.slint";
+import { ListView } from "../../components/list_view.slint";
 import { CoreSetting, CoreSettingType } from "types.slint";
 import { Icons } from "../../icons.slint";
-import { ListView } from "std-widgets.slint";
 
 component ListBox {
     in-out property <int> index;
@@ -67,7 +66,7 @@ component ListBox {
     }
 }
 
-export component CoreSettingListItem {
+component CoreSettingListItem {
     in-out property <CoreSetting> item;
     in property <bool> selected;
 
@@ -174,72 +173,10 @@ export component CoreSettingListItem {
     @children
 }
 
-export component CoreSettingListBase inherits ListView {
+component CoreSettingListBase inherits ListView {
     in property <[CoreSetting]> model: Backend.core-settings;
-    in-out property <int> current-item: 0;
-
-    callback current-item-changed(current-item: int);
-
-    public function set-current-item(index: int) {
-        if index < 0 || index >= model.length || index == root.current-item {
-            return;
-        }
-        bring-into-view(index);
-
-        current-item = index;
-        focus-item = index;
-        current-item-changed(current-item);
-    }
-
-    private property <length> item-height: self.viewport-height / self.model.length;
-    private property <int> into-view-item: 0;
-    private property <length> into-view-item-y: root.item-y(root.into-view-item);
-    private property <length> current-item-y: root.item-y(root.focus-item);
-    private property <int> focus-item: 0;
-    private property <bool> has-item-been-selected: false;
-
-    vertical-scrollbar-policy: always-off;
-    horizontal-scrollbar-policy: always-off;
-
-    pure function item-y(index: int) -> length {
-        return root.viewport-y + index * root.item-height;
-    }
-
-    pure function item-at-y(y: length) -> int {
-        return min(root.model.length - 1, max(0, round(y / root.item-height)));
-    }
-
-    function bring-into-view(index: int) {
-        if (index < 0 || index >= model.length) {
-            return;
-        }
-        into-view-item = index;
-
-        if (into-view-item-y < 0) {
-            self.viewport-y += 0 - into-view-item-y;
-        }
-        if (into-view-item-y + item-height > self.visible-height) {
-            self.viewport-y -= into-view-item-y + item-height - self.visible-height;
-        }
-    }
-
-    public function focus-up() {
-        root.set-focus-item(root.focus-item - 1);
-    }
-
-    public function focus-down() {
-        root.set-focus-item(root.focus-item + 1);
-    }
-
-    protected function select-focus-item() {
-        root.set-current-item(root.focus-item);
-    }
-
-    protected function set-focus-item(index: int) {
-        root.focus-item = min(root.model.length - 1, max(0, index));
-        root.bring-into-view(root.focus-item);
-        root.select-focus-item();
-    }
+    num-items: model.length;
+    current-item: 0;
 
     for item[index] in root.model: CoreSettingListItem {
         height: 20px;
@@ -259,10 +196,10 @@ export component CoreSettingList {
 
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
-                i-list.focus-up();
+                i-list.select-up();
                 return accept;
             } else if (event.text == Key.DownArrow) {
-                i-list.focus-down();
+                i-list.select-down();
                 return accept;
             }
             reject

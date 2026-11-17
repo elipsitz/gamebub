@@ -37,7 +37,8 @@ fn get_startup_action() -> StartupAction {
     }
 }
 
-fn main() -> anyhow::Result<()> {
+#[inline(never)]
+fn init() -> anyhow::Result<&'static mut UI> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
     esp_idf_svc::log::set_target_level("gpio", log::LevelFilter::Warn).unwrap();
@@ -105,12 +106,18 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Setup UI
-    let mut ui = UI::new(&mut device);
+    let ui = UI::init(&mut device);
     std::mem::drop(device);
 
-    // Run UI in this thread.
     if let StartupAction::MainMenu = get_startup_action() {
         led::LedController::set_behavior(led::LedBehavior::OFF);
     }
+    Ok(ui)
+}
+
+fn main() -> anyhow::Result<()> {
+    // Use a different stack frame so the main thread doesn't waste
+    // stack on initialization locals while the UI runs.
+    let ui = init()?;
     ui.run();
 }

@@ -6,6 +6,7 @@ mod state;
 use ::slint::platform::WindowAdapter;
 use ::slint::{ComponentHandle, WindowSize};
 pub use buttons::{Button, ButtonEvent, ButtonMap};
+use static_cell::StaticCell;
 use std::path::PathBuf;
 use std::sync::{mpsc, OnceLock};
 use std::time::Duration;
@@ -110,6 +111,8 @@ impl<'a, 'b, 'c> LineBufferProvider for &mut FpgaLineRenderer<'a, 'b, 'c> {
     }
 }
 
+static UI_CELL: StaticCell<UI> = StaticCell::new();
+
 #[allow(unused)]
 pub struct UI {
     framebuffer: Vec<Argb1555>,
@@ -123,7 +126,7 @@ pub struct UI {
 }
 
 impl UI {
-    pub fn new(device: &mut Device) -> Self {
+    pub fn init(device: &mut Device) -> &'static mut Self {
         device
             .fpga
             .write_u32(crate::bitstream::boot::REG_LOGO_Y, 38)
@@ -161,17 +164,18 @@ impl UI {
         )));
 
         let root = slint::MainWindow::new().unwrap();
+        let state = UiState::new(&root, device);
 
-        UI {
+        UI_CELL.init_with(|| UI {
             framebuffer,
             lcd_line_buffer,
             window,
             message_queue: receiver,
-            state: UiState::new(&root, device),
+            state,
             root,
             button_event_detector: buttons::ButtonEventDetector::new(),
             idle_timer,
-        }
+        })
     }
 
     pub fn run(&mut self) -> ! {

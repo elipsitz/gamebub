@@ -60,7 +60,7 @@ impl Model for FileListModel {
 
 impl UiState {
     /// Set up the "Cores" screen.
-    pub(super) fn setup_cores(&mut self, state: &Rc<RefCell<UiState>>, _device: &mut Device) {
+    pub(super) fn setup_cores(&mut self, state: &'static RefCell<UiState>, _device: &mut Device) {
         let root = self.root.unwrap();
         let backend = root.global::<Backend>();
 
@@ -68,15 +68,13 @@ impl UiState {
             worker::send(worker::Message::FetchCoreList);
         });
 
-        let state_ = state.clone();
         backend.on_core_run(move |core_id| {
-            let mut state = state_.borrow_mut();
+            let mut state = state.borrow_mut();
             state.cores_handle_run(core_id);
         });
 
-        let state_ = state.clone();
         backend.on_core_file_select_selected(move |index| {
-            let mut state = state_.borrow_mut();
+            let mut state = state.borrow_mut();
             let root: crate::ui::slint::MainWindow = state.root.unwrap();
             let backend = root.global::<Backend>();
             let list = backend.get_core_file_select_list();
@@ -91,15 +89,13 @@ impl UiState {
             }
         });
 
-        let state_ = state.clone();
         backend.on_core_file_select_up(move || {
-            let mut state = state_.borrow_mut();
+            let mut state = state.borrow_mut();
             state.cores_handle_file_select_selected(PathBuf::new(), "..");
         });
 
-        let state_ = state.clone();
         backend.on_core_file_select_cancel(move || {
-            state_
+            state
                 .borrow()
                 .root
                 .unwrap()

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use super::super::slint::{Backend, BatteryInfo};
 use slint::ComponentHandle;
@@ -9,7 +9,7 @@ use super::UiState;
 
 impl UiState {
     /// Set up the "Tools" screen.
-    pub(super) fn setup_tools(&mut self, _state: &Rc<RefCell<UiState>>, _device: &mut Device) {
+    pub(super) fn setup_tools(&mut self, _state: &'static RefCell<UiState>, _device: &mut Device) {
         let root = self.root.unwrap();
         let backend = root.global::<Backend>();
 

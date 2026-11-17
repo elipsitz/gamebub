@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use super::super::slint::Backend;
 use slint::ComponentHandle;
@@ -11,7 +11,7 @@ impl UiState {
     /// Set up the "Setup" screen.
     pub(super) fn setup_setup(
         &mut self,
-        _state: &Rc<RefCell<UiState>>,
+        _state: &'static RefCell<UiState>,
         _device: &mut crate::Device,
     ) {
         let root = self.root.unwrap();

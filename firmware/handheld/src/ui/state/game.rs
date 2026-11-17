@@ -21,7 +21,7 @@ pub struct CoreSettingUiItem {
 
 impl UiState {
     /// Set up the "Game" screen.
-    pub(super) fn setup_game(&mut self, state: &Rc<RefCell<UiState>>, _device: &mut Device) {
+    pub(super) fn setup_game(&mut self, state: &'static RefCell<UiState>, _device: &mut Device) {
         let root = self.root.unwrap();
         let backend = root.global::<Backend>();
 
@@ -33,10 +33,9 @@ impl UiState {
             worker::send(worker::Message::ResetCore);
         });
 
-        let state_ = state.clone();
         backend.on_game_settings_load(move || {
             // Clear existing settings
-            let state = state_.borrow_mut();
+            let state = state.borrow_mut();
             let root: crate::ui::slint::MainWindow = state.root.unwrap();
             let backend = root.global::<Backend>();
             backend.set_core_settings(ModelRc::default());
@@ -51,14 +50,13 @@ impl UiState {
             });
         });
 
-        let state_ = state.clone();
         backend.on_game_exit(move || {
             worker::send(worker::Message::ExitCore);
             // Give it a moment to start loading the boot bitstream (avoid screen flash)
             std::thread::sleep(Duration::from_millis(100));
             // Go back to the menu
             let (root, game_cartridge) = {
-                let state = state_.borrow_mut();
+                let state = state.borrow_mut();
                 (state.root.unwrap(), state.game_cartridge)
             };
             if game_cartridge {

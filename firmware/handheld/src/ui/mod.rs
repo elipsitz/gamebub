@@ -6,7 +6,7 @@ mod state;
 use ::slint::platform::WindowAdapter;
 use ::slint::{ComponentHandle, WindowSize};
 pub use buttons::{Button, ButtonEvent, ButtonMap};
-use static_cell::StaticCell;
+use static_cell::{ConstStaticCell, StaticCell};
 use std::path::PathBuf;
 use std::sync::{mpsc, OnceLock};
 use std::time::Duration;
@@ -112,15 +112,19 @@ impl<'a, 'b, 'c> LineBufferProvider for &mut FpgaLineRenderer<'a, 'b, 'c> {
 }
 
 static UI_CELL: StaticCell<UI> = StaticCell::new();
+static FRAMEBUFFER: ConstStaticCell<[Argb1555; DISPLAY_WIDTH]> =
+    ConstStaticCell::new([Argb1555::TRANSPARENT; DISPLAY_WIDTH]);
+static LCD_LINE_BUFFER: ConstStaticCell<[u8; DISPLAY_WIDTH * 3 * 2]> =
+    ConstStaticCell::new([0; DISPLAY_WIDTH * 3 * 2]);
 
 #[allow(unused)]
 pub struct UI {
-    framebuffer: Vec<Argb1555>,
-    lcd_line_buffer: Vec<u8>,
+    framebuffer: &'static mut [Argb1555],
+    lcd_line_buffer: &'static mut [u8],
     window: Rc<MinimalSoftwareWindow>,
     message_queue: Receiver<Message>,
     root: slint::MainWindow,
-    state: Rc<RefCell<UiState>>,
+    state: &'static RefCell<UiState>,
     button_event_detector: buttons::ButtonEventDetector,
     idle_timer: Timer,
 }
@@ -150,8 +154,9 @@ impl UI {
         let (sender, receiver) = mpsc::channel::<Message>();
         SENDER.set(sender).expect("UI already initialized");
 
-        let framebuffer = vec![Argb1555::from_rgb(0, 0, 0); DISPLAY_WIDTH];
-        let lcd_line_buffer = vec![0u8; DISPLAY_WIDTH * 3 * 2];
+        let framebuffer = FRAMEBUFFER.take();
+        framebuffer.fill(Argb1555::from_rgb(0, 0, 0));
+        let lcd_line_buffer = LCD_LINE_BUFFER.take();
 
         let window = MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
         ::slint::platform::set_platform(Box::new(slint::HandheldPlatform {
@@ -204,7 +209,7 @@ impl UI {
                 {
                     let mut line_renderer = FpgaLineRenderer {
                         device: &mut device,
-                        line_buffer: &mut self.framebuffer,
+                        line_buffer: self.framebuffer,
                     };
                     renderer.render_by_line(&mut line_renderer);
                 };
@@ -283,7 +288,7 @@ impl UI {
             Message::Notification(notification) => {
                 self.state
                     .borrow_mut()
-                    .queue_notification(self.state.clone(), notification);
+                    .queue_notification(self.state, notification);
             }
             Message::DockBegin { serial, firmware } => {
                 let backend = self.root.global::<slint::Backend>();
@@ -295,7 +300,7 @@ impl UI {
                 self.root.global::<slint::Backend>().set_docked(false);
             }
             Message::Screenshot => {
-                match screenshot::save_ui_screenshot(&self.window, &mut self.framebuffer) {
+                match screenshot::save_ui_screenshot(&self.window, self.framebuffer) {
                     Ok(f) => log::info!("Saved UI screenshot to {f}"),
                     Err(e) => log::error!("Screenshot error: {e}"),
                 }

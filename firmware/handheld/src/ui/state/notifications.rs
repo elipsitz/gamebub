@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, time::Duration};
 
 use slint::{ComponentHandle, TimerMode};
 
@@ -38,7 +38,11 @@ impl Notification {
 }
 
 impl UiState {
-    pub fn queue_notification(&mut self, state: Rc<RefCell<Self>>, notification: Notification) {
+    pub fn queue_notification(
+        &mut self,
+        state: &'static RefCell<Self>,
+        notification: Notification,
+    ) {
         if self.notification_active {
             self.notification_queue.push_back(notification);
             return;
@@ -59,7 +63,6 @@ impl UiState {
                 backend.set_notification_visible(false);
 
                 // After a delay, show the next one.
-                let state = state.clone();
                 inner
                     .notification_timer
                     .start(TimerMode::SingleShot, INTERVAL, move || {
@@ -67,7 +70,7 @@ impl UiState {
                         inner.notification_active = false;
 
                         if let Some(next) = inner.notification_queue.pop_front() {
-                            inner.queue_notification(state.clone(), next);
+                            inner.queue_notification(state, next);
                         }
                     });
             })

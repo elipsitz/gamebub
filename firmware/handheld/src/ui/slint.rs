@@ -99,7 +99,7 @@ pub struct Argb1555(u16);
 
 impl Argb1555 {
     #![allow(dead_code)]
-    const TRANSPARENT: Self = Argb1555(0);
+    pub const TRANSPARENT: Self = Argb1555(0);
 
     const A_MASK: u16 = 0b1000_0000_0000_0000;
     const R_MASK: u16 = 0b0111_1100_0000_0000;

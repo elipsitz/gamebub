@@ -1,6 +1,7 @@
-use std::{cell::RefCell, collections::VecDeque, path::PathBuf, rc::Rc, time::Duration};
+use std::{cell::RefCell, collections::VecDeque, path::PathBuf, time::Duration};
 
 use slint::{ComponentHandle, Global, Timer, TimerMode, Weak};
+use static_cell::StaticCell;
 
 use crate::kvs;
 use crate::{core::CoreManager, device::Device};
@@ -33,21 +34,24 @@ pub struct UiState {
     core_file_select_timer: Timer,
 }
 
+static UI_STATE: StaticCell<RefCell<UiState>> = StaticCell::new();
+
 impl UiState {
-    pub fn new(root: &MainWindow, device: &mut Device) -> Rc<RefCell<Self>> {
-        let state: UiState = UiState {
-            root: root.as_weak(),
-            notification_timer: Timer::default(),
-            notification_queue: VecDeque::new(),
-            notification_active: false,
-            game_cartridge: false,
-            settings: settings::SettingsState::default(),
-            core_file_select_directory: PathBuf::new(),
-            core_file_select_filename: String::new(),
-            core_file_select_timer: Timer::default(),
-        };
-        let state = Rc::new(RefCell::new(state));
-        state.borrow_mut().setup(state.clone(), device);
+    pub fn new(root: &MainWindow, device: &mut Device) -> &'static RefCell<Self> {
+        let state = UI_STATE.init_with(|| {
+            RefCell::new(UiState {
+                root: root.as_weak(),
+                notification_timer: Timer::default(),
+                notification_queue: VecDeque::new(),
+                notification_active: false,
+                game_cartridge: false,
+                settings: settings::SettingsState::default(),
+                core_file_select_directory: PathBuf::new(),
+                core_file_select_filename: String::new(),
+                core_file_select_timer: Timer::default(),
+            })
+        });
+        state.borrow_mut().setup(state, device);
         state
     }
 
@@ -58,7 +62,7 @@ impl UiState {
         backend.set_battery_level(level);
     }
 
-    fn setup(&mut self, state: Rc<RefCell<UiState>>, device: &mut Device) {
+    fn setup(&mut self, state: &'static RefCell<UiState>, device: &mut Device) {
         let root = self.root.unwrap();
         let backend = root.global::<Backend>();
 
@@ -71,12 +75,12 @@ impl UiState {
         backend.set_firmware_version(env!("CARGO_PKG_VERSION").into());
         backend.set_sdcard_mounted(std::fs::exists("/sdcard").unwrap_or(false));
 
-        self.setup_setup(&state, device);
-        self.setup_main_menu(&state, device);
-        self.setup_game(&state, device);
-        self.setup_tools(&state, device);
-        self.setup_settings(&state, device);
-        self.setup_cores(&state, device);
+        self.setup_setup(state, device);
+        self.setup_main_menu(state, device);
+        self.setup_game(state, device);
+        self.setup_tools(state, device);
+        self.setup_settings(state, device);
+        self.setup_cores(state, device);
 
         // Check for first boot
         if kvs::keys::SETUP_STAGE.get().unwrap_or_default() == 0 {
@@ -94,53 +98,48 @@ impl UiState {
                         "Firmware updated to {}",
                         env!("CARGO_PKG_VERSION")
                     ));
-                    self.queue_notification(state.clone(), notification);
+                    self.queue_notification(state, notification);
                 }
             }
         }
 
-        let state_ = state.clone();
         backend.on_screen_enter(move |screen| {
             // Called when a new screen is entered, before the new frame is rendered.
             log::info!("Screen enter: {:?}", screen);
             if screen == ScreenId::Settings {
-                state_.borrow_mut().on_settings_enter()
+                state.borrow_mut().on_settings_enter()
             }
         });
 
         backend.on_volume_changed({
-            let state_ = state.clone();
             let timer = Timer::default();
             move |value| {
                 let volume = ((value * (u8::MAX as i32)) / 100) as u8;
                 Device::lock().dac.set_volume(volume).unwrap();
                 // Start the timer to hide the bar.
-                let state_ = state_.clone();
                 timer.start(
                     TimerMode::SingleShot,
                     Duration::from_millis(1000),
                     move || {
                         kvs::keys::VOLUME.set(&volume);
-                        Backend::get(&state_.borrow().root.unwrap()).set_volume_visible(false);
+                        Backend::get(&state.borrow().root.unwrap()).set_volume_visible(false);
                     },
                 )
             }
         });
 
         backend.on_brightness_changed({
-            let state_ = state.clone();
             let timer = Timer::default();
             move |value| {
                 let brightness = (value as f32) / 100.0;
                 Device::lock().set_brightness(brightness);
                 // Start the timer to hide the bar.
-                let state_ = state_.clone();
                 timer.start(
                     TimerMode::SingleShot,
                     Duration::from_millis(1000),
                     move || {
                         kvs::keys::BRIGHTNESS.set(&brightness);
-                        Backend::get(&state_.borrow().root.unwrap()).set_brightness_visible(false);
+                        Backend::get(&state.borrow().root.unwrap()).set_brightness_visible(false);
                     },
                 )
             }

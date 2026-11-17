@@ -168,13 +168,16 @@ impl Default for SettingsState {
 
 impl UiState {
     /// Set up the "Settings" screen.
-    pub(super) fn setup_settings(&mut self, state: &Rc<RefCell<UiState>>, _device: &mut Device) {
+    pub(super) fn setup_settings(
+        &mut self,
+        state: &'static RefCell<UiState>,
+        _device: &mut Device,
+    ) {
         let root = self.root.unwrap();
         let backend = root.global::<Backend>();
 
-        let state_ = state.clone();
         backend.on_settings_changed(move |i, value| {
-            let mut state = state_.borrow_mut();
+            let mut state = state.borrow_mut();
             let Some(model) = state.settings.model.as_ref() else {
                 return;
             };
@@ -199,9 +202,8 @@ impl UiState {
             }
         });
 
-        let state_ = state.clone();
         backend.on_settings_back(move || {
-            let mut state = state_.borrow_mut();
+            let mut state = state.borrow_mut();
             match state.settings.stack.pop() {
                 Some(previous) => {
                     state.set_settings_page(previous.0, previous.1);

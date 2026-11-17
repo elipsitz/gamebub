@@ -1,30 +1,49 @@
 import { Backend } from "../../common.slint";
-import { ListViewBase } from "../../components/list_view.slint";
+import { ListView, ListContainer } from "../../components/list_view.slint";
 import { ControlHint } from "../../components/control_hint.slint";
 import { CoreListEntry } from "types.slint";
 
-component CoreListItem inherits HorizontalLayout {
+component CoreListItem inherits Rectangle {
     in property <CoreListEntry> core;
-    padding: 2px;
+    in property <bool> focused;
 
-    Text {
-        text: core.core-name;
-        horizontal-alignment: left;
-        overflow: elide;
-        min-width: 160px;
-        horizontal-stretch: 2.0;
-    }
+    background: root.focused ? #bbb : transparent;
 
-    Text {
-        text: core.core-author;
-        horizontal-alignment: right;
-        overflow: elide;
-        color: #666;
-        min-width: 80px;
-        horizontal-stretch: 1.0;
+    HorizontalLayout {
+        padding: 2px;
+        height: 100%;
+
+        Text {
+            text: core.core-name;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            overflow: elide;
+            min-width: 160px;
+            horizontal-stretch: 2.0;
+        }
+
+        Text {
+            text: core.core-author;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            overflow: elide;
+            color: #666;
+            min-width: 80px;
+            horizontal-stretch: 1.0;
+        }
     }
 }
 
+component CoreListBase inherits ListView {
+    in property <[CoreListEntry]> model;
+    num-items: model.length;
+
+    for item[index] in root.model: CoreListItem {
+        height: 20px;
+        core: item;
+        focused: index == root.current-item;
+    }
+}
 
 export component CoreList {
     in property <[CoreListEntry]> cores;
@@ -33,7 +52,7 @@ export component CoreList {
     callback on-cancel();
     callback on-core-selected(/* selected-item */ int);
 
-    forward-focus: i-list;
+    forward-focus: i-focus-scope;
 
     // Loading box
     if is-loading: Rectangle {
@@ -56,29 +75,35 @@ export component CoreList {
     i-focus-scope := FocusScope {
         key-pressed(event) => {
             if (is-loading) {
-                reject
+                return reject;
+            } else if (event.text == Key.UpArrow) {
+                i-list.select-up();
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                i-list.select-down();
+                return accept;
+            } else if (event.text == "a" && !event.repeat && i-list.has-selection()) {
+                on-core-selected(i-list.current-item);
+                return accept;
             } else if (event.text == "b") {
                 on-cancel();
-                accept
-            } else {
-                reject
+                return accept;
             }
+            reject
         }
 
         VerticalLayout {
             spacing: 2px;
 
-            i-list := ListViewBase {
-                num-items: cores.length;
-                wrap: true;
-                focus-item <=> Backend.core-list-index;
+            ListContainer {
+                viewport-y: i-list.viewport-y;
+                viewport-height: i-list.viewport-height;
+                visible-height: i-list.visible-height;
 
-                for item[index] in cores: child-items := CoreListItem {
-                    core: item;
-                }
-
-                on-item-selected(i) => {
-                    on-core-selected(i);
+                i-list := CoreListBase {
+                    model: root.cores;
+                    wrap: true;
+                    current-item <=> Backend.core-list-index;
                 }
             }
 

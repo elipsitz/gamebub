@@ -1,33 +1,27 @@
 import { Backend } from "../../common.slint";
-import { ListViewBase } from "../../components/list_view.slint";
+import { ListView, ListContainer } from "../../components/list_view.slint";
 import { SettingType, SettingValue, SettingEntry } from "types.slint";
 import { DatetimePicker } from "datetime.slint";
 import { ListBox } from "list_box.slint";
 import { Icons } from "../../icons.slint";
 
-export component SettingsListViewItem {
+component SettingsListViewItem {
     in property <SettingEntry> item;
+    in property <bool> focused;
     in property <bool> selected;
     in property <int> index;
 
-    public function handle-selected() -> EventResult {
-        if item.type == SettingType.checkbox {
-            Backend.settings-changed(index, { bool-value: !item.value.bool-value });
-        } else if item.type == SettingType.subpage {
-            Backend.settings-changed(index, { });
-        } else if item.type == SettingType.datetime {
-            return accept;
-        } else if item.type == SettingType.list {
-            return accept;
-        }
-        reject
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        background: root.focused ? #bbb : transparent;
+        border-color: black;
+        border-width: root.selected ? 1px : 0px;
     }
-
-    min-width: i-text.min-width;
-    min-height: i-text.min-height + 2px;
 
     i-text := Text {
         x: 2px;
+        height: 100%;
         text: root.item.name;
         vertical-alignment: center;
         horizontal-alignment: left;
@@ -39,7 +33,7 @@ export component SettingsListViewItem {
         background: white;
         x: parent.width - self.width - 4px;
         width: self.height;
-        height: parent.height - 2px;
+        height: parent.height - 4px;
         border-color: black;
         border-width: 1px;
 
@@ -74,26 +68,84 @@ export component SettingsListViewItem {
             Backend.settings-changed(index, { int-value: self.index });
         }
     }
-
-    @children
 }
 
-export component SettingsListView inherits ListViewBase {
+component SettingsListViewBase inherits ListView {
     in property <[SettingEntry]> model;
+    in property <bool> item-selected: false;
     num-items: model.length;
 
     for item[index] in root.model: child-items := SettingsListViewItem {
         index: index;
         item: item;
-        height: self.min-height;
-        selected: (index == root.focus-item) && root.item-selected;
+        height: 20px;
+        focused: index == root.current-item;
+        selected: (index == root.current-item) && root.item-selected;
+    }
+}
 
-        if self.selected: FocusScope {
-            init => {
-                if parent.handle-selected() != EventResult.accept {
-                    root.item-selected = false;
-                }
+export component SettingsListView inherits FocusScope {
+    in property <[SettingEntry]> model;
+    in-out property <int> focus-item <=> i-list.current-item;
+    in property <bool> wrap <=> i-list.wrap;
+
+    private property <bool> item-selected: false;
+
+    changed model => {
+        item-selected = false;
+    }
+
+    function activate() {
+        if (item-selected) {
+            item-selected = false;
+            root.focus();
+            return;
+        }
+        if (!i-list.has-selection()) {
+            return;
+        }
+        if (model[i-list.current-item].type == SettingType.checkbox) {
+            Backend.settings-changed(i-list.current-item, { bool-value: !model[i-list.current-item].value.bool-value });
+        } else if (model[i-list.current-item].type == SettingType.subpage) {
+            Backend.settings-changed(i-list.current-item, { });
+        } else {
+            item-selected = true;
+        }
+    }
+
+    ListContainer {
+        width: 100%;
+        height: 100%;
+        viewport-y: i-list.viewport-y;
+        viewport-height: i-list.viewport-height;
+        visible-height: i-list.visible-height;
+
+        i-list := SettingsListViewBase {
+            model: root.model;
+            item-selected: root.item-selected;
+        }
+    }
+
+    key-pressed(event) => {
+        if (!item-selected) {
+            if (event.text == Key.UpArrow) {
+                i-list.select-up();
+                return accept;
+            }
+            if (event.text == Key.DownArrow) {
+                i-list.select-down();
+                return accept;
             }
         }
+        if (event.text == "a" && !event.repeat) {
+            root.activate();
+            return accept;
+        }
+        if (event.text == "b" && item-selected && !event.repeat) {
+            item-selected = false;
+            root.focus();
+            return accept;
+        }
+        reject
     }
 }

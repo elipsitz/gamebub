@@ -5,4 +5,9 @@
     "rust-analyzer.cargo.features": [
         "rev4",
     ],
+    "slint.style": "gamebub",
+    "slint.includePaths": [
+        "res/style",
+        "res/style/gamebub",
+    ],
 }

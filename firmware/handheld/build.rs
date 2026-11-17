@@ -1,12 +1,21 @@
+use std::path::PathBuf;
 use std::process::Command;
 
 fn main() {
     embuild::espidf::sysenv::output();
 
+    let manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    println!("cargo:rerun-if-changed=res/style/gamebub");
+
     slint_build::compile_with_config(
         "res/ui/main.slint",
         slint_build::CompilerConfiguration::new()
-            .embed_resources(slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer),
+            .embed_resources(slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer)
+            .with_style("gamebub".into())
+            .with_include_paths(vec![
+                manifest_dir.join("res/style"),
+                manifest_dir.join("res/style/gamebub"),
+            ]),
     )
     .unwrap();
 

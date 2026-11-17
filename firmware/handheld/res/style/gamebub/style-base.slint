@@ -1,0 +1,14 @@
+export global Palette {
+    in-out property <ColorScheme> color-scheme: ColorScheme.light;
+    out property <brush> background: #E8E8E8;
+    out property <brush> foreground: #000000;
+    out property <brush> selection-background: #BBBBBB;
+    out property <brush> selection-foreground: #000000;
+}
+
+export global StyleMetrics {
+    out property <length> layout-spacing: 0px;
+    out property <length> layout-padding: 0px;
+    out property <length> text-cursor-width: 1px;
+    out property <brush> window-background: Palette.background;
+}

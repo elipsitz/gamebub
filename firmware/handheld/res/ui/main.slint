@@ -6,7 +6,7 @@ import { SettingsScreen } from "screens/settings/settings.slint";
 import { ToolsScreen } from "screens/tools/tools.slint";
 import { ErrorScreen } from "screens/error.slint";
 import { AboutScreen } from "screens/about.slint";
-import { Global, ScreenId, Backend } from "common.slint";
+import { Global, ScreenId, Backend, Palette } from "common.slint";
 import { PowerMenu } from "components/power_menu.slint";
 import { Notification } from "components/notification.slint";
 import { SetupScreen } from "screens/setup.slint";
@@ -38,7 +38,7 @@ export component MainWindow inherits Window {
         screen-title = title;
     }
 
-    background: Global.ui-transparent ? transparent : #E8E8E8;
+    background: Global.ui-transparent ? transparent : Palette.background;
     default-font-family: "Ark Pixel 12px Prop latin";
     default-font-size: 12px;
 

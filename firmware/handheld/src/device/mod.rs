@@ -17,6 +17,7 @@ use esp_idf_svc::hal::spi::{
 };
 use esp_idf_svc::hal::units::{FromValueType, Hertz};
 use esp_idf_svc::hal::{i2c::*, ledc};
+use static_cell::StaticCell;
 
 pub mod board;
 pub mod deep_sleep;
@@ -29,6 +30,10 @@ mod led;
 const FPGA_POWER_DELAY: Duration = Duration::from_millis(5);
 
 static DEVICE: OnceLock<Mutex<Device>> = OnceLock::new();
+static I2C_DRIVER: StaticCell<Mutex<I2cDriver<'static>>> = StaticCell::new();
+static FPGA_SPI_DRIVER: StaticCell<SpiDriver<'static>> = StaticCell::new();
+#[cfg(any(feature = "rev2", feature = "rev4"))]
+static LCD_SPI_DRIVER: StaticCell<SpiDriver<'static>> = StaticCell::new();
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DisplayMode {
@@ -155,7 +160,6 @@ impl Device<'_> {
         let fpga_power_time = Instant::now();
 
         // Initialize I2C
-        // TODO: see if there's a good way to do this without making and leaking a Box
         let i2c_config = I2cConfig::new()
             .baudrate(400.kHz().into())
             .timeout(Duration::from_millis(10).into());
@@ -166,7 +170,7 @@ impl Device<'_> {
             &i2c_config,
         )
         .context("I2cDriver")?;
-        let i2c = &*Box::leak(Box::new(Mutex::new(i2c)));
+        let i2c = &*I2C_DRIVER.init(Mutex::new(i2c));
 
         let pin_irq = PinDriver::input(board.pins.irq)?;
 
@@ -210,35 +214,32 @@ impl Device<'_> {
         };
 
         // Setup SPI
-        // TODO: see if there's a good way to do this without making and leaking a Box
         // Use DMA transfers, with an auto-assigned channel, and a maximum transfer size of 32 KiB.
         let spi_driver_config = SpiDriverConfig::new().dma(spi::Dma::Auto(32 * 1024));
-        let fpga_spi_driver = &*Box::leak(Box::new(
-            SpiDriver::new_quad(
-                board.spi2,
-                board.pins.fpga_spi_clk,
-                board.pins.fpga_spi_d0,
-                board.pins.fpga_spi_d1,
-                board.pins.fpga_spi_d2,
-                board.pins.fpga_spi_d3,
-                &spi_driver_config,
-            )
-            .context("fpga spi driver")?,
-        ));
+        let fpga_spi_driver = SpiDriver::new_quad(
+            board.spi2,
+            board.pins.fpga_spi_clk,
+            board.pins.fpga_spi_d0,
+            board.pins.fpga_spi_d1,
+            board.pins.fpga_spi_d2,
+            board.pins.fpga_spi_d3,
+            &spi_driver_config,
+        )
+        .context("fpga spi driver")?;
+        let fpga_spi_driver = &*FPGA_SPI_DRIVER.init(fpga_spi_driver);
         cfg_if::cfg_if! {
             if #[cfg(feature = "rev1")] {
                 let lcd_spi_driver = fpga_spi_driver;
             } else if #[cfg(any(feature = "rev2", feature = "rev4"))] {
-                let lcd_spi_driver = &*Box::leak(Box::new(
-                    SpiDriver::new(
-                        board.spi3,
-                        board.pins.lcd_spi_clk.expect("lcd_spi_clk"),
-                        board.pins.lcd_spi_d0.expect("lcd_spi_d0"),
-                        Option::<AnyInputPin>::None,
-                        &spi_driver_config,
-                    )
-                    .context("lcd spi driver")?,
-                ));
+                let lcd_spi_driver = SpiDriver::new(
+                    board.spi3,
+                    board.pins.lcd_spi_clk.expect("lcd_spi_clk"),
+                    board.pins.lcd_spi_d0.expect("lcd_spi_d0"),
+                    Option::<AnyInputPin>::None,
+                    &spi_driver_config,
+                )
+                .context("lcd spi driver")?;
+                let lcd_spi_driver = &*LCD_SPI_DRIVER.init(lcd_spi_driver);
             }
         }
 

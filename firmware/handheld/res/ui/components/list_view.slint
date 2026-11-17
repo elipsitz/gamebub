@@ -1,4 +1,167 @@
-import { ListView } from "std-widgets.slint";
+// Minimal Flickable wrapper named `ListView` (with `visible-*`/`viewport-*`) so Slint
+// enables lazy row loading.
+export component ListView {
+    in property <int> num-items: 0;
+    in-out property <int> current-item: -1;
+    in property <bool> wrap: false;
+
+    out property <length> visible-width <=> flickable.width;
+    out property <length> visible-height <=> flickable.height;
+    in-out property <length> viewport-width <=> flickable.viewport-width;
+    in-out property <length> viewport-height <=> flickable.viewport-height;
+    in-out property <length> viewport-x <=> flickable.viewport-x;
+    in-out property <length> viewport-y <=> flickable.viewport-y;
+
+    callback current-item-changed(current-item: int);
+
+    public pure function has-selection() -> bool {
+        return root.current-item >= 0 && root.current-item < root.num-items;
+    }
+
+    public function set-current-item(index: int) {
+        if index < 0 || index >= num-items || index == root.current-item {
+            return;
+        }
+        current-item = index;
+        current-item-changed(current-item);
+    }
+
+    private property <length> item-height: num-items > 0 ? self.viewport-height / self.num-items : 0px;
+    private property <int> into-view-item: 0;
+    private property <length> into-view-item-y: root.item-y(root.into-view-item);
+
+    init => {
+        root.bring-into-view(root.current-item);
+    }
+
+    pure function item-y(index: int) -> length {
+        return root.viewport-y + index * root.item-height;
+    }
+
+    changed current-item => {
+        root.bring-into-view(root.current-item);
+    }
+
+    changed num-items => {
+        if (root.num-items > 0) {
+            if (root.current-item >= root.num-items) {
+                root.current-item = root.num-items - 1;
+            }
+            root.bring-into-view(root.current-item);
+        } else {
+            root.viewport-y = 0px;
+        }
+    }
+
+    changed visible-height => {
+        root.bring-into-view(root.current-item);
+    }
+
+    changed viewport-height => {
+        root.bring-into-view(root.current-item);
+    }
+
+    function bring-into-view(index: int) {
+        if (index < 0 || index >= num-items || self.visible-height <= 0px || self.viewport-height <= 0px) {
+            return;
+        }
+        if (self.viewport-height <= self.visible-height) {
+            self.viewport-y = 0px;
+            return;
+        }
+        into-view-item = index;
+
+        if (into-view-item-y < 0) {
+            self.viewport-y += 0 - into-view-item-y;
+        }
+        if (into-view-item-y + item-height > self.visible-height) {
+            self.viewport-y -= into-view-item-y + item-height - self.visible-height;
+        }
+    }
+
+    function step-selection(delta: int, allow-wrap: bool) {
+        if (root.num-items <= 0) {
+            return;
+        }
+        if (root.current-item < 0) {
+            root.set-current-item((allow-wrap && delta < 0) ? root.num-items - 1 : 0);
+            return;
+        }
+        if (allow-wrap) {
+            root.set-current-item(mod(root.current-item + delta, root.num-items));
+        } else {
+            root.set-current-item(clamp(root.current-item + delta, 0, root.num-items - 1));
+        }
+    }
+
+    public function select-up() {
+        root.step-selection(-1, root.wrap);
+    }
+
+    public function select-page-up() {
+        if (root.item-height > 0px) {
+            root.step-selection(-max(1, floor(root.visible-height / root.item-height)), false);
+        }
+    }
+
+    public function select-down() {
+        root.step-selection(1, root.wrap);
+    }
+
+    public function select-page-down() {
+        if (root.item-height > 0px) {
+            root.step-selection(max(1, floor(root.visible-height / root.item-height)), false);
+        }
+    }
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    preferred-width: 100%;
+    preferred-height: 100%;
+
+    flickable := Flickable {
+        interactive: false;
+        width: parent.width;
+        height: parent.height;
+        @children
+    }
+}
+
+// Container for a list component, with a border and optional scrollbar.
+export component ListContainer inherits Rectangle {
+    in property <bool> show-scrollbar: true;
+    in property <length> viewport-y: 0px;
+    in property <length> viewport-height: 0px;
+    in property <length> visible-height: 0px;
+
+    private property <length> scrollbar-width: 2px;
+    private property <bool> has-scrollbar: show-scrollbar && viewport-height > visible-height;
+
+    border-width: 1px;
+    border-color: black;
+
+    Rectangle {
+        x: 2px;
+        y: 2px;
+        width: show-scrollbar ? (scroll-bar.x - self.x - 2px) : (parent.width - 4px);
+        height: parent.height - 4px;
+        @children
+    }
+
+    scroll-bar := Rectangle {
+        visible: has-scrollbar;
+        x: parent.width - self.width - 2px;
+        y: 2px;
+        width: scrollbar-width;
+        height: parent.height - 4px;
+        inner := Rectangle {
+            y: viewport-height > 0px ? (-viewport-y / viewport-height) * parent.height : 0px;
+            width: 100%;
+            height: viewport-height > 0px ? (visible-height / viewport-height) * parent.height : 0px;
+            background: black;
+        }
+    }
+}
 
 export component ListViewBase inherits Rectangle {
     in property <int> num-items;

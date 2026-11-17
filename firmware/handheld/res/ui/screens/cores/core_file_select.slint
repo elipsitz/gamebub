@@ -1,5 +1,6 @@
 import { Backend, Global } from "../../common.slint";
 import { FileListView } from "../../components/file_list.slint";
+import { ListContainer } from "../../components/list_view.slint";
 import { ControlHint } from "../../components/control_hint.slint";
 
 export component CoreFileSelect {
@@ -50,15 +51,12 @@ export component CoreFileSelect {
                 text: Backend.core-file-select-path;
             }
 
-            Rectangle {
-                private property <length> scrollbar-width: 2px;
-                private property <bool> has-scrollbar: list.viewport-height > list.height;
-                border-width: 1px;
-                border-color: black;
+            ListContainer {
+                viewport-y: list.viewport-y;
+                viewport-height: list.viewport-height;
+                visible-height: list.height;
 
                 list := FileListView {
-                    x: 0px;
-                    width: scroll-bar.x;
                     model: Backend.core-file-select-list;
                     wrap: true;
                     disabled: Backend.core-file-select-is-loading || has-error;
@@ -68,20 +66,6 @@ export component CoreFileSelect {
                     }
                     current-item-changed(i) => {
                         // TODO
-                    }
-                }
-
-                scroll-bar := Rectangle {
-                    visible: has-scrollbar;
-                    x: parent.width - self.width - 2px;
-                    y: 2px;
-                    width: scrollbar-width;
-                    height: parent.height - 4px;
-                    inner := Rectangle {
-                        y: (-list.viewport-y / list.viewport-height) * parent.height;
-                        width: 100%;
-                        height: (list.height / list.viewport-height) * parent.height;
-                        background: black;
                     }
                 }
             }

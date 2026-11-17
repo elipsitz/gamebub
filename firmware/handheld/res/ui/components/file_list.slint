@@ -1,6 +1,5 @@
-import { ListViewBase } from "list_view.slint";
+import { ListView } from "list_view.slint";
 import { Icons } from "../icons.slint";
-import { ListView } from "std-widgets.slint";
 
 export enum FileIcon {
     blank,
@@ -54,93 +53,9 @@ component FileListItem {
     }
 }
 
-// Adapted from StandardListViewBase.
-export component FileListViewBase inherits ListView {
+component FileListViewBase inherits ListView {
     in property <[FileListEntry]> model;
-    in-out property <int> current-item: -1;
-    in property <bool> wrap: false;
-
-    callback current-item-changed(current-item: int);
-
-    public function set-current-item(index: int) {
-        if index < 0 || index >= model.length || index == root.current-item {
-            return;
-        }
-        bring-into-view(index);
-
-        current-item = index;
-        focus-item = index;
-        current-item-changed(current-item);
-    }
-
-    private property <length> item-height: self.viewport-height / self.model.length;
-    private property <int> into-view-item: 0;
-    private property <length> into-view-item-y: root.item-y(root.into-view-item);
-    private property <length> current-item-y: root.item-y(root.focus-item);
-    private property <int> focus-item: 0;
-    private property <bool> has-item-been-selected: false;
-
-    vertical-scrollbar-policy: always-off;
-    horizontal-scrollbar-policy: always-off;
-
-    pure function first-visible-item() -> int {
-        return min(root.model.length - 1, max(0, round(-root.viewport-y / root.item-height)));
-    }
-
-    pure function last-visible-item() -> int {
-        return min(root.model.length - 1, max(0, round((-root.viewport-y + root.height - root.item-height) / root.item-height)));
-    }
-
-    pure function item-y(index: int) -> length {
-        return root.viewport-y + index * root.item-height;
-    }
-
-    pure function item-at-y(y: length) -> int {
-        return min(root.model.length - 1, max(0, round(y / root.item-height)));
-    }
-
-    function bring-into-view(index: int) {
-        if (index < 0 || index >= model.length) {
-            return;
-        }
-        into-view-item = index;
-
-        if (into-view-item-y < 0) {
-            self.viewport-y += 0 - into-view-item-y;
-        }
-        if (into-view-item-y + item-height > self.visible-height) {
-            self.viewport-y -= into-view-item-y + item-height - self.visible-height;
-        }
-    }
-
-    protected function focus-up() {
-        root.set-focus-item(root.focus-item - 1);
-    }
-
-    protected function focus-page-up() {
-        root.set-focus-item(max(0, root.focus-item - floor(root.height / root.item-height)));
-    }
-
-    protected function focus-down() {
-        root.set-focus-item(root.focus-item + 1);
-    }
-
-    protected function focus-page-down() {
-        root.set-focus-item(min(root.model.length - 1, root.focus-item + floor(root.height / root.item-height)));
-    }
-
-    protected function select-focus-item() {
-        root.set-current-item(root.focus-item);
-    }
-
-    protected function set-focus-item(index: int) {
-        if wrap {
-            focus-item = mod(index, root.model.length);
-        } else {
-            root.focus-item = min(root.model.length - 1, max(0, index));
-        }
-        root.bring-into-view(root.focus-item);
-    }
+    num-items: model.length;
 
     for item[index] in root.model: FileListItem {
         height: 15px; // N.B. Setting this to self.min-height doesn't work.
@@ -160,23 +75,19 @@ export component FileListView inherits FileListViewBase {
             if (disabled) {
                 return reject;
             } else if (event.text == Key.UpArrow) {
-                root.focus-up();
-                root.select-focus-item();
+                root.select-up();
                 return accept;
             } else if (event.text == Key.DownArrow) {
-                root.focus-down();
-                root.select-focus-item();
+                root.select-down();
                 return accept;
-            } else if (event.text == "a" && !event.repeat) {
+            } else if (event.text == "a" && !event.repeat && root.has-selection()) {
                 root.on-item-selected(root.current-item);
                 return accept;
             } else if (event.text == "l") {
-                root.focus-page-up();
-                root.select-focus-item();
+                root.select-page-up();
                 return accept;
             } else if (event.text == "r") {
-                root.focus-page-down();
-                root.select-focus-item();
+                root.select-page-down();
                 return accept;
             }
             reject

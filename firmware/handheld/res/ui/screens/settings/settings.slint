@@ -24,7 +24,7 @@ export component SettingsScreen inherits ScreenBase {
         }
 
         key-released(event) => {
-            if event.text == "Home" && !Global.home-consumed {
+            if event.text == "Home" {
                 Global.set-screen(ScreenId.MainMenu);
                 accept
             } else {

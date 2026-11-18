@@ -299,7 +299,13 @@ export component SetupScreen inherits ScreenBase {
             } else if (event.text == "b") {
                 prev-page();
                 accept
-            } else if (page == max-page && event.text == "Home") {
+            } else {
+                reject
+            }
+        }
+
+        key-released(event) => {
+            if (page == max-page && event.text == "Home") {
                 Backend.setup-complete();
                 Global.set-screen(ScreenId.MainMenu);
                 accept

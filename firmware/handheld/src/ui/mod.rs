@@ -5,7 +5,8 @@ mod state;
 
 use ::slint::platform::WindowAdapter;
 use ::slint::{ComponentHandle, WindowSize};
-pub use buttons::{Button, ButtonEvent, ButtonMap};
+use buttons::ButtonEvent;
+pub use buttons::{Button, ButtonMap};
 use static_cell::{ConstStaticCell, StaticCell};
 use std::path::PathBuf;
 use std::sync::{mpsc, OnceLock};
@@ -127,6 +128,8 @@ pub struct UI {
     state: &'static RefCell<UiState>,
     button_event_detector: buttons::ButtonEventDetector,
     idle_timer: Timer,
+    home_pressed: bool,
+    home_consumed: bool,
 }
 
 impl UI {
@@ -180,7 +183,57 @@ impl UI {
             root,
             button_event_detector: buttons::ButtonEventDetector::new(),
             idle_timer,
+            home_pressed: false,
+            home_consumed: false,
         })
+    }
+
+    fn handle_button_event(&mut self, event: ButtonEvent) {
+        match event {
+            ButtonEvent::Pressed(Button::Home, repeat) => {
+                if !repeat {
+                    self.home_pressed = true;
+                    self.home_consumed = false;
+                }
+                return;
+            }
+            ButtonEvent::Released(Button::Home) => {
+                self.home_pressed = false;
+                if std::mem::take(&mut self.home_consumed) {
+                    return;
+                }
+            }
+            ButtonEvent::Pressed(button @ (Button::VolUp | Button::VolDown), _) => {
+                let setting = if self.home_pressed {
+                    self.home_consumed = true;
+                    state::LevelSetting::Brightness
+                } else {
+                    state::LevelSetting::Volume
+                };
+                self.state
+                    .borrow()
+                    .adjust_level(setting, button == Button::VolUp);
+                return;
+            }
+            ButtonEvent::Released(Button::VolUp | Button::VolDown) => {
+                return;
+            }
+            ButtonEvent::Pressed(Button::Power, _) => {
+                return;
+            }
+            ButtonEvent::Released(Button::Power) => {
+                // Close any auto-closing popup synchronously before toggling PowerMenu so
+                // focus stays consistent.
+                self.window
+                    .dispatch_event(::slint::platform::WindowEvent::KeyPressed {
+                        text: ::slint::platform::Key::Escape.into(),
+                    });
+                self.root.invoke_toggle_power_menu();
+                return;
+            }
+            _ => {}
+        }
+        self.window.dispatch_event(event.into());
     }
 
     pub fn run(&mut self) -> ! {
@@ -195,7 +248,7 @@ impl UI {
                 pending_message = self.message_queue.try_recv().ok();
             }
             for button_event in self.button_event_detector.update(None) {
-                self.window.dispatch_event(button_event.into());
+                self.handle_button_event(button_event);
                 self.idle_timer.restart();
             }
 
@@ -249,7 +302,7 @@ impl UI {
             Message::Button(state) => {
                 self.idle_timer.restart();
                 for button_event in self.button_event_detector.update(Some(state)) {
-                    self.window.dispatch_event(button_event.into());
+                    self.handle_button_event(button_event);
                 }
             }
             Message::BatteryStatus { level } => {

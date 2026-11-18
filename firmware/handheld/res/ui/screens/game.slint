@@ -64,13 +64,34 @@ export component GameScreen inherits ScreenBase {
     //     // i-settings.focus();
     // }
 
+    private property <bool> power-menu-open: Global.power-menu-open;
+    private property <bool> core-is-loading: Backend.core-is-loading;
+
+    changed power-menu-open => {
+        if (self.power-menu-open) {
+            if (!root.menu-open && !Backend.core-is-loading) {
+                set-menu-open(true);
+            }
+        } else if (root.menu-open && !root.settings-open) {
+            i-list.focus();
+        }
+    }
+
+    changed core-is-loading => {
+        if (!self.core-is-loading && Global.power-menu-open && !root.menu-open) {
+            set-menu-open(true);
+        }
+    }
+
     protected function set-menu-open(open: bool) {
         Global.ui-status-bar = open;
         Backend.game-set-focused(!open);
         self.menu-open = open;
         if (menu-open) {
             i-list.focused-item = 0;
-            i-list.focus();
+            if (!Global.power-menu-open) {
+                i-list.focus();
+            }
         } else {
             settings-open = false;
             i-focus-scope.focus();
@@ -79,11 +100,8 @@ export component GameScreen inherits ScreenBase {
 
     i-focus-scope := FocusScope {
         key-released(event) => {
-            if (event.text == "Home" || event.text == "h") && !Global.home-consumed && !Backend.core-is-loading {
+            if event.text == "Home" && !Backend.core-is-loading {
                 set-menu-open(!root.menu-open);
-            }
-            if event.text == "Power" && !root.menu-open {
-                set-menu-open(true);
             }
             if event.text == "b" {
                 if settings-open {

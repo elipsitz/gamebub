@@ -107,7 +107,10 @@ impl ButtonEventDetector {
         }
     }
 
-    pub fn update(&mut self, new_state: Option<ButtonMap>) -> impl Iterator<Item = ButtonEvent> {
+    pub fn update(
+        &mut self,
+        new_state: Option<ButtonMap>,
+    ) -> impl Iterator<Item = ButtonEvent> + 'static {
         let now = Instant::now();
         let mut events = EnumMap::from_fn(|_| None);
         for (button, state) in self.state.iter_mut() {
@@ -146,6 +149,6 @@ impl ButtonEventDetector {
         self.state
             .iter()
             .filter_map(|(_, s)| s.next_press_repeat())
-            .max()
+            .min()
     }
 }

@@ -1,4 +1,4 @@
-import { Backend, Global } from "../../common.slint";
+import { Backend } from "../../common.slint";
 import { FileListView } from "../../components/file_list.slint";
 import { ListContainer } from "../../components/list_view.slint";
 import { ControlHint } from "../../components/control_hint.slint";
@@ -36,7 +36,7 @@ export component CoreFileSelect {
             }
         }
         key-released(event) => {
-            if (event.text == "Home" && !Global.home-consumed) {
+            if (event.text == "Home") {
                 on-cancel();
                 accept
             } else {

@@ -16,21 +16,21 @@ export { ScreenId, Backend }
 export component MainWindow inherits Window {
     private property <string> screen-title;
 
-    protected function update-volume(amount: int) {
-        Backend.volume-visible = true;
-        Backend.volume-level = clamp(Backend.volume-level + amount, 0, 100);
-        Backend.volume-changed(Backend.volume-level);
-        Backend.brightness-visible = false;
-    }
-
-    protected function update-brightness(amount: int) {
-        Backend.brightness-visible = true;
-        Backend.brightness-level = clamp(Backend.brightness-level + amount, 0, 100);
-        Backend.brightness-changed(Backend.brightness-level);
-        Backend.volume-visible = false;
+    public function toggle-power-menu() {
+        if (Global.power-menu-open) {
+            Global.power-menu-open = false;
+            power-menu.close();
+        } else {
+            Global.power-menu-open = true;
+            power-menu.show();
+        }
     }
 
     public function set-screen(screen: ScreenId) {
+        if (Global.power-menu-open) {
+            Global.power-menu-open = false;
+            power-menu.close();
+        }
         Global.set-screen(screen);
     }
 
@@ -51,106 +51,69 @@ export component MainWindow inherits Window {
         title: root.screen-title;
     }
 
-    focus-scope := FocusScope {
+    VerticalLayout {
         y: status-bar.visible ? status-bar.height : 0;
         height: parent.height - self.y;
+        padding: Global.ui-transparent ? 0 : 4px;
 
-        VerticalLayout {
-            padding: Global.ui-transparent ? 0 : 4px;
-            Rectangle {
-                if (Global.current-screen == ScreenId.Setup): SetupScreen {
-                    init => {
-                        Global.ui-status-bar = false;
-                        self.focus();
-                        root.screen-title = self.title;
-                    }
-                }
-                if (Global.current-screen == ScreenId.MainMenu): MainMenuScreen {
-                    init => {
-                        Global.ui-status-bar = true;
-                        self.focus();
-                        root.screen-title = self.title;
-                    }
-                }
-
-                if (Global.current-screen == ScreenId.Game): GameScreen {
-                    init => {
-                        Global.ui-status-bar = false;
-                        self.focus();
-                        root.screen-title = self.title;
-                    }
-                }
-
-                if (Global.current-screen == ScreenId.Settings): SettingsScreen {
-                    init => {
-                        self.focus();
-                        root.screen-title = self.title;
-                    }
-                }
-
-                if (Global.current-screen == ScreenId.Tools): ToolsScreen {
-                    init => {
-                        self.focus();
-                        root.screen-title = self.title;
-                    }
-                }
-
-                if (Global.current-screen == ScreenId.Error): ErrorScreen {
-                    init => {
-                        self.focus();
-                        root.screen-title = self.title;
-                    }
-                }
-
-                if (Global.current-screen == ScreenId.About): AboutScreen {
-                    init => {
-                        self.focus();
-                        root.screen-title = self.title;
-                    }
-                }
-
-                if (Global.current-screen == ScreenId.Cores): CoresScreen {
-                    init => {
-                        Global.ui-status-bar = true;
-                        root.screen-title = self.title;
-                    }
+        Rectangle {
+            if (Global.current-screen == ScreenId.Setup): SetupScreen {
+                init => {
+                    Global.ui-status-bar = false;
+                    self.focus();
+                    root.screen-title = self.title;
                 }
             }
-        }
-
-        key-pressed(event) => {
-            if event.text == "VolUp" || event.text == "q" {
-                if Global.home-pressed {
-                    Global.home-consumed = true;
-                    update-brightness(Backend.brightness-increment);
-                } else {
-                    update-volume(Backend.volume-increment);
+            if (Global.current-screen == ScreenId.MainMenu): MainMenuScreen {
+                init => {
+                    Global.ui-status-bar = true;
+                    self.focus();
+                    root.screen-title = self.title;
                 }
             }
-            if event.text == "VolDown" || event.text == "e" {
-                if Global.home-pressed {
-                    Global.home-consumed = true;
-                    update-brightness(-Backend.brightness-increment);
-                } else {
-                    update-volume(-Backend.volume-increment);
+
+            if (Global.current-screen == ScreenId.Game): GameScreen {
+                init => {
+                    Global.ui-status-bar = false;
+                    self.focus();
+                    root.screen-title = self.title;
                 }
             }
-            if (event.text == "Home" || event.text == "h") && !event.repeat {
-                Global.home-pressed = true;
-                Global.home-consumed = false;
-            }
-            accept
-        }
 
-        key-released(event) => {
-            if (event.text == "Home" || event.text == "h") {
-                Global.home-pressed = false;
+            if (Global.current-screen == ScreenId.Settings): SettingsScreen {
+                init => {
+                    self.focus();
+                    root.screen-title = self.title;
+                }
             }
-            if (event.text == "Power" || event.text == "p") {
-                power-menu.show();
-                Global.power-menu-open = true;
+
+            if (Global.current-screen == ScreenId.Tools): ToolsScreen {
+                init => {
+                    self.focus();
+                    root.screen-title = self.title;
+                }
             }
-            accept
+
+            if (Global.current-screen == ScreenId.Error): ErrorScreen {
+                init => {
+                    self.focus();
+                    root.screen-title = self.title;
+                }
+            }
+
+            if (Global.current-screen == ScreenId.About): AboutScreen {
+                init => {
+                    self.focus();
+                    root.screen-title = self.title;
+                }
+            }
+
+            if (Global.current-screen == ScreenId.Cores): CoresScreen {
+                init => {
+                    Global.ui-status-bar = true;
+                    root.screen-title = self.title;
+                }
+            }
         }
     }
 

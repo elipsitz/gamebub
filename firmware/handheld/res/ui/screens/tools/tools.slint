@@ -67,7 +67,7 @@ export component ToolsScreen inherits ScreenBase {
                 }
             }
             key-released(event) => {
-                if event.text == "Home" && !Global.home-consumed {
+                if event.text == "Home" {
                     Backend.tools-end-usb-drive();
                     accept
                 } else {
@@ -99,7 +99,7 @@ export component ToolsScreen inherits ScreenBase {
                 Backend.tools-start-cart-reader();
             }
             key-released(event) => {
-                if event.text == "Home" && !Global.home-consumed {
+                if event.text == "Home" {
                     Backend.tools-end-cart-reader();
                     accept
                 } else {

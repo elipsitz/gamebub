@@ -1,39 +1,15 @@
-import { Backend } from "../../common.slint";
 import { SettingDatetime } from "types.slint";
 
 export component DatetimePicker {
-    in-out property <SettingDatetime> dt;
-    private property <SettingDatetime> original-dt;
-    in property <bool> selected;
-    private property <int> part;
-
-    callback on-changed(SettingDatetime);
+    in property <SettingDatetime> dt;
+    in property <bool> selected: false;
+    in property <int> part: 0;
 
     protected pure function pad(val: int, pad: string) -> string {
         if val < 10 {
             "\{pad}\{val}"
         } else {
             val
-        }
-    }
-
-    protected function update(delta: SettingDatetime) {
-        dt = Backend.datetime-add(dt, delta);
-    }
-
-    protected function update-delta(delta: int) {
-        if part == 0 {
-            update({ year: delta })
-        } else if part == 1 {
-            update({ month: delta })
-        } else if part == 2 {
-            update({ day: delta })
-        } else if part == 3 {
-            update({ hour: delta })
-        } else if part == 4 {
-            update({ min: delta })
-        } else if part == 5 {
-            update({ sec: delta })
         }
     }
 
@@ -85,39 +61,6 @@ export component DatetimePicker {
         Text {
             text: dt.hour >= 12 ? "PM" : "AM";
             color: !selected ? black : gray;
-        }
-    }
-
-    if selected: FocusScope {
-        init => {
-            self.focus();
-            root.part = 0;
-            original-dt = dt;
-        }
-        key-pressed(event) => {
-            if event.text == "a" {
-                on-changed(dt);
-            }
-            if event.text == "b" {
-                dt = original-dt;
-            }
-            if event.text == Key.LeftArrow {
-                root.part = max(0, root.part - 1);
-                return accept;
-            }
-            if event.text == Key.RightArrow {
-                root.part = min(4, root.part + 1);
-                return accept;
-            }
-            if event.text == Key.UpArrow {
-                root.update-delta(1);
-                return accept;
-            }
-            if event.text == Key.DownArrow {
-                root.update-delta(-1);
-                return accept;
-            }
-            reject
         }
     }
 }

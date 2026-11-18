@@ -1,141 +1,23 @@
 import { Backend } from "../../common.slint";
 import { ListView } from "../../components/list_view.slint";
+import { ChoicePopup } from "../../components/choice_popup.slint";
 import { CoreSetting, CoreSettingType } from "types.slint";
-import { Icons } from "../../icons.slint";
-
-component ListBox {
-    in-out property <int> index;
-    in property <[string]> choices;
-    in property <bool> focused;
-
-    private property <length> item-height: i-area.viewport-height / choices.length;
-
-    callback on-changed();
-
-    HorizontalLayout {
-        spacing: 2px;
-
-        Image {
-            source: Icons.left-caret;
-            visible: focused;
-            colorize: #000;
-        }
-
-        i-area := Flickable {
-            viewport-y: -root.item-height * root.index;
-            viewport-height: i-items.min-height;
-            height: item-height;
-            width: i-items.min-width;
-
-            i-items := VerticalLayout {
-                width: self.min-width;
-                for choice[i] in root.choices: child-items := Text {
-                    text: choice;
-                    horizontal-alignment: right;
-                }
-            }
-        }
-
-        Image {
-            source: Icons.right-caret;
-            visible: focused;
-            colorize: #000;
-        }
-    }
-
-    if focused: FocusScope {
-        init => {
-            self.focus();
-        }
-        key-pressed(event) => {
-            if !focused {
-                return reject;
-            }
-            if event.text == Key.LeftArrow {
-                root.index = max(root.index - 1, 0);
-                on-changed();
-                return accept;
-            }
-            if event.text == Key.RightArrow {
-                root.index = min(root.index + 1, root.choices.length - 1);
-                on-changed();
-                return accept;
-            }
-            reject
-        }
-    }
-}
 
 component CoreSettingListItem {
-    in-out property <CoreSetting> item;
+    in property <CoreSetting> item;
     in property <bool> selected;
 
-    i-highlight := Rectangle {
+    Rectangle {
         width: root.width;
         height: root.height;
         border-width: 1px;
         border-color: selected ? black : transparent;
     }
 
-    // i-popup := PopupWindow {
-    //     Rectangle {
-    //         height: 100%;
-    //         width: 100%;
-    //         border-width: 1px;
-    //         border-color: black;
-    //         background: white;
-    //     }
-
-    //     x: 0;
-    //     y: -root.absolute-position.y + 8px;
-    //     height: i-layout.min-height;
-    //     width: i-layout.min-width;
-
-    //     i-layout := VerticalLayout {
-    //         padding: 4px;
-    //         for choice in root.item.choices: Text {
-    //             text: choice;
-    //         }
-    //     }
-
-    //     forward-focus: i-focus-scope;
-    //     i-focus-scope := FocusScope {
-    //         key-released(event) => {
-    //             if (event.text == "x") {
-    //                 parent.close();
-    //                 return accept;
-    //             }
-    //             reject
-    //         }
-    //     }
-    // }
-
-    if selected: FocusScope {
-        init => {
-            self.focus();
-        }
-        key-pressed(event) => {
-            if event.text == "a" {
-                handle-selected();
-            }
-            reject
-        }
-    }
-
-    public function handle-selected() {
-        if item.type == CoreSettingType.action {
-            Backend.game-settings-set(item.id, item.value);
-        } else if item.type == CoreSettingType.checkbox {
-            item.value = (item.value == 0) ? 1 : 0;
-            Backend.game-settings-set(item.id, item.value);
-        }
-    }
-
-    min-width: i-text.min-width;
-    min-height: i-text.min-height + 2px;
-
-    i-text := Text {
+    Text {
         x: 4px;
+        height: 100%;
+        max-width: parent.width - 8px;
         text: item.label;
         vertical-alignment: center;
         horizontal-alignment: left;
@@ -150,7 +32,8 @@ component CoreSettingListItem {
         border-color: black;
         border-width: 1px;
 
-        if (item.value != 0): Rectangle {
+        Rectangle {
+            visible: item.value != 0;
             x: 2px;
             y: 2px;
             width: parent.width - 4px;
@@ -159,18 +42,12 @@ component CoreSettingListItem {
         }
     }
 
-    if item.type == CoreSettingType.list: ListBox {
+    if item.type == CoreSettingType.list: Text {
         x: parent.width - self.width - 4px;
-        index: item.value;
-        choices: item.choices;
-        focused: root.selected;
-        on-changed => {
-            item.value = self.index;
-            Backend.game-settings-set(item.id, item.value);
-        }
+        height: 100%;
+        vertical-alignment: center;
+        text: (item.value >= 0 && item.value < item.choices.length) ? item.choices[item.value] : "";
     }
-
-    @children
 }
 
 component CoreSettingListBase inherits ListView {
@@ -185,24 +62,65 @@ component CoreSettingListBase inherits ListView {
     }
 }
 
-export component CoreSettingList {
-    forward-focus: i-focus-scope;
+export component CoreSettingList inherits FocusScope {
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    preferred-width: 100%;
+    preferred-height: 100%;
 
-    i-focus-scope := FocusScope {
-        i-list := CoreSettingListBase {
-            width: 100%;
-            height: 100%;
+    function set-current-value(entry: CoreSetting, val: int) {
+        Backend.core-settings[i-list.current-item] = {
+            id: entry.id,
+            label: entry.label,
+            type: entry.type,
+            value: val,
+            choices: entry.choices,
+        };
+        Backend.game-settings-set(entry.id, val);
+    }
+
+    function activate-item(entry: CoreSetting) {
+        if (entry.type == CoreSettingType.action) {
+            Backend.game-settings-set(entry.id, entry.value);
+        } else if (entry.type == CoreSettingType.checkbox) {
+            root.set-current-value(entry, (entry.value == 0) ? 1 : 0);
+        } else if (entry.type == CoreSettingType.list && entry.choices.length > 0) {
+            i-choice-popup.show();
         }
+    }
 
-        key-pressed(event) => {
-            if (event.text == Key.UpArrow) {
-                i-list.select-up();
-                return accept;
-            } else if (event.text == Key.DownArrow) {
-                i-list.select-down();
-                return accept;
+    i-choice-popup := ChoicePopup {
+        width: parent.width;
+        height: parent.height;
+        choices: i-list.has-selection() ? i-list.model[i-list.current-item].choices : [];
+        initial-item: i-list.has-selection() ? i-list.model[i-list.current-item].value : 0;
+        anchor-y: i-list.current-item * 20px + i-list.viewport-y;
+
+        selected(index) => {
+            if (i-list.has-selection()) {
+                root.set-current-value(i-list.model[i-list.current-item], index);
             }
-            reject
         }
+    }
+
+    i-list := CoreSettingListBase {
+        width: 100%;
+        height: 100%;
+    }
+
+    key-pressed(event) => {
+        if (event.text == Key.UpArrow) {
+            i-list.select-up();
+            return accept;
+        }
+        if (event.text == Key.DownArrow) {
+            i-list.select-down();
+            return accept;
+        }
+        if (event.text == "a" && !event.repeat && i-list.has-selection()) {
+            root.activate-item(i-list.model[i-list.current-item]);
+            return accept;
+        }
+        reject
     }
 }

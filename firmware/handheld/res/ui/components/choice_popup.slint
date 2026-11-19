@@ -1,0 +1,119 @@
+import { Icons } from "../icons.slint";
+import { ListContainer } from "list_view.slint";
+
+// Scrollable popup list for picking an option from a list setting.
+//
+// Intentionally doesn't use Slint's lazy ListView, instead we just recycle the text.
+// It's a lot simpler with layout and doesn't have a performance hit.
+export component ChoicePopup inherits PopupWindow {
+    in property <[string]> choices;
+    in property <int> initial-item: 0;
+    in property <length> anchor-y: 0px;
+    in property <length> card-width: 112px;
+
+    private property <length> row-height: 18px;
+    private property <int> max-rows: max(1, floor(max(0px, root.height - 4px) / root.row-height));
+    private property <int> visible-rows: min(root.max-rows, max(1, root.choices.length));
+    private property <int> current-item: 0;
+    private property <int> scroll-offset: clamp(
+        root.current-item - floor(root.visible-rows / 2),
+        0,
+        max(0, root.choices.length - root.visible-rows));
+
+    callback selected(index: int);
+
+    x: 0;
+    y: 0;
+    close-policy: close-on-click-outside;
+
+    function move-selection(delta: int) {
+        if (root.choices.length <= 0) {
+            return;
+        }
+        // Detach the initial binding once the user navigates so moving up stays inside the current viewport.
+        root.scroll-offset = root.scroll-offset;
+        root.current-item = mod(root.current-item + delta, root.choices.length);
+        if (root.current-item < root.scroll-offset) {
+            root.scroll-offset = root.current-item;
+        } else if (root.current-item >= root.scroll-offset + root.visible-rows) {
+            root.scroll-offset = root.current-item - root.visible-rows + 1;
+        }
+    }
+
+    init => {
+        root.current-item = clamp(root.initial-item, 0, max(0, root.choices.length - 1));
+        i-focus-scope.focus();
+    }
+
+    i-card := ListContainer {
+        background: #FFF;
+        show-scrollbar: root.choices.length > root.max-rows;
+        width: min(root.card-width, max(0px, root.width - 8px));
+        height: root.visible-rows * root.row-height + 4px;
+        x: root.width - self.width - 4px;
+        y: clamp(root.anchor-y, 0px, max(0px, root.height - self.height));
+        viewport-y: -root.scroll-offset * root.row-height;
+        viewport-height: root.choices.length * root.row-height;
+        visible-height: root.visible-rows * root.row-height;
+
+        i-focus-scope := FocusScope {
+            width: 100%;
+            height: 100%;
+
+            VerticalLayout {
+                for i in root.visible-rows: Rectangle {
+                    private property <int> choice-index: root.scroll-offset + i;
+                    height: root.row-height;
+
+                    Image {
+                        visible: choice-index == root.current-item && choice-index < root.choices.length;
+                        x: 2px;
+                        y: (parent.height - self.height) / 2;
+                        source: Icons.right-caret;
+                        colorize: black;
+                    }
+
+                    Text {
+                        x: 11px;
+                        width: parent.width - 13px;
+                        height: 100%;
+                        text: choice-index < root.choices.length ? root.choices[choice-index] : "";
+                        vertical-alignment: center;
+                        overflow: elide;
+                        // Needed for Slint PopupWindow font-size inheritance bug (slint#8855).
+                        font-size: 12px;
+                    }
+                }
+            }
+
+            key-pressed(event) => {
+                if (event.text == Key.UpArrow) {
+                    root.move-selection(-1);
+                    return accept;
+                }
+                if (event.text == Key.DownArrow) {
+                    root.move-selection(1);
+                    return accept;
+                }
+                if (event.text == "a" && !event.repeat && root.current-item >= 0 && root.current-item < root.choices.length) {
+                    root.selected(root.current-item);
+                    root.close();
+                    return accept;
+                }
+                if (event.text == "b" && !event.repeat) {
+                    // Consume press, close on key release.
+                    return accept;
+                }
+                reject
+            }
+
+            key-released(event) => {
+                if (event.text == "b") {
+                    root.close();
+                    return accept;
+                }
+                reject
+            }
+        }
+    }
+}

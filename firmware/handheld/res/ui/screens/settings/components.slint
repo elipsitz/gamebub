@@ -1,15 +1,14 @@
 import { Backend } from "../../common.slint";
 import { ListView, ListContainer } from "../../components/list_view.slint";
+import { ChoicePopup } from "../../components/choice_popup.slint";
 import { SettingType, SettingValue, SettingEntry, SettingDatetime } from "types.slint";
 import { DatetimePicker } from "datetime.slint";
-import { ListBox } from "list_box.slint";
 import { Icons } from "../../icons.slint";
 
 component SettingsListViewItem {
     in property <SettingEntry> item;
     in property <bool> focused;
     in property <bool> selected;
-    in property <int> index;
     in property <SettingDatetime> datetime-draft;
     in property <int> datetime-part: 0;
 
@@ -39,7 +38,8 @@ component SettingsListViewItem {
         border-color: black;
         border-width: 1px;
 
-        if item.value.bool-value: Rectangle {
+        Rectangle {
+            visible: item.value.bool-value;
             x: 2px;
             y: 2px;
             width: parent.width - 4px;
@@ -59,14 +59,11 @@ component SettingsListViewItem {
         x: parent.width - self.width - 4px;
         y: (parent.height - self.height) * 50%;
     }
-    if item.type == SettingType.list: ListBox {
+    if item.type == SettingType.list: Text {
         x: parent.width - self.width - 4px;
-        index: item.value.int-value;
-        choices: item.choices;
-        selected: root.selected;
-        on-changed => {
-            Backend.settings-changed(index, { int-value: self.index });
-        }
+        height: 100%;
+        vertical-alignment: center;
+        text: (item.value.int-value >= 0 && item.value.int-value < item.choices.length) ? item.choices[item.value.int-value] : "";
     }
 }
 
@@ -77,8 +74,7 @@ component SettingsListViewBase inherits ListView {
     in property <int> datetime-part: 0;
     num-items: model.length;
 
-    for item[index] in root.model: child-items := SettingsListViewItem {
-        index: index;
+    for item[index] in root.model: SettingsListViewItem {
         item: item;
         height: 20px;
         focused: index == root.current-item;
@@ -92,6 +88,11 @@ export component SettingsListView inherits FocusScope {
     in property <[SettingEntry]> model;
     in-out property <int> focus-item <=> i-list.current-item;
     in property <bool> wrap <=> i-list.wrap;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    preferred-width: 100%;
+    preferred-height: 100%;
 
     private property <bool> item-selected: false;
     private property <int> datetime-part: 0;
@@ -120,8 +121,8 @@ export component SettingsListView inherits FocusScope {
             datetime-part = 0;
             datetime-draft = entry.value.datetime-value;
             item-selected = true;
-        } else {
-            item-selected = true;
+        } else if (entry.type == SettingType.list && entry.choices.length > 0) {
+            i-choice-popup.show();
         }
     }
 
@@ -144,6 +145,20 @@ export component SettingsListView inherits FocusScope {
             return accept;
         }
         reject
+    }
+
+    i-choice-popup := ChoicePopup {
+        width: parent.width;
+        height: parent.height;
+        choices: i-list.has-selection() ? root.model[i-list.current-item].choices : [];
+        initial-item: i-list.has-selection() ? root.model[i-list.current-item].value.int-value : 0;
+        anchor-y: 2px + i-list.current-item * 20px + i-list.viewport-y;
+
+        selected(index) => {
+            if (i-list.has-selection()) {
+                Backend.settings-changed(i-list.current-item, { int-value: index });
+            }
+        }
     }
 
     ListContainer {
@@ -187,11 +202,7 @@ export component SettingsListView inherits FocusScope {
         if (model[i-list.current-item].type == SettingType.datetime) {
             return root.handle-datetime-key(event);
         }
-        if ((event.text == "a" || event.text == "b") && !event.repeat) {
-            item-selected = false;
-            root.focus();
-            return accept;
-        }
+        item-selected = false;
         reject
     }
 }

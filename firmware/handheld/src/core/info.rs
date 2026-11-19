@@ -7,7 +7,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::device::drivers::fpga;
+use crate::{
+    device::drivers::fpga,
+    fwinfo::{FirmwareVersion, FIRMWARE_VERSION},
+};
 
 pub const DIR_CORES: &str = "/sdcard/cores/";
 
@@ -275,6 +278,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
 
     #[derive(Deserialize)]
     struct JsonCoreInfo {
+        min_firmware: FirmwareVersion,
         metadata: JsonCoreMetadata,
         #[serde(deserialize_with = "deserialize_bounded_vec::<_, _, MAX_CORE_BITSTREAMS>")]
         bitstreams: Vec<JsonCoreBitstream>,
@@ -303,6 +307,13 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
 
     let json_core: JsonCoreInfo = try_read_json(&core_dir, "core.json")?
         .ok_or_else(|| format!("Missing core.json in /cores/{id}"))?;
+
+    if FIRMWARE_VERSION < json_core.min_firmware {
+        return Err(format!(
+            "Core requires firmware {} or later\n(installed: {})",
+            json_core.min_firmware, FIRMWARE_VERSION,
+        ));
+    }
 
     if json_core.metadata.id.as_str() != id {
         return Err(format!(

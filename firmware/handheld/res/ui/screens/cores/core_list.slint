@@ -88,6 +88,12 @@ export component CoreList {
             } else if (event.text == "b") {
                 on-cancel();
                 return accept;
+            } else if (event.text == "l") {
+                i-list.select-page-up();
+                return accept;
+            } else if (event.text == "r") {
+                i-list.select-page-down();
+                return accept;
             }
             reject
         }

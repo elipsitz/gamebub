@@ -1,6 +1,7 @@
 package platform.handheld.input
 
 import chisel3._
+import chisel3.util._
 import lib.mem.RegisterMap
 import lib.util.ButtonFilter
 import net.gamebub.framework.CoreException
@@ -12,6 +13,8 @@ class HandheldInput private (
   val handheldButtons: InputBasicV0.Buttons,
   val docked: Bool,
   val coreFocus: Bool,
+  val vibrateEnable: Bool,
+  val handheldVibrate: UInt,
 )
 
 object HandheldInput {
@@ -36,12 +39,20 @@ object HandheldInput {
     val leftTrigger = UInt(8.W)
   }
 
-  def apply(inputInterface: Option[Data]): HandheldInput = {
+  /** Per-slot rumble output */
+  private class RumbleSlotOut extends Bundle {
+    val weak = UInt(8.W)
+    val strong = UInt(8.W)
+  }
+
+  def apply(inputInterface: Option[Data], clockSystemHz: Int): HandheldInput = {
     val handheldButtons = Wire(new InputBasicV0.Buttons)
     val docked = Wire(Bool())
     val coreFocus = Wire(Bool())
+    val vibrateEnable = Wire(Bool())
+    val handheldVibrate = WireDefault(0.U(8.W))
 
-    val (capabilities, registerEntries) = inputInterface match {
+    val (baseCapabilities, slotEntries, rumbleSlots) = inputInterface match {
       case Some(basic: InputBasicV0) => {
         val capabilities = 0x0000_0001
         val regSlot0Buttons = RegInit(0.U.asTypeOf(new InputBasicV0.Buttons))
@@ -72,7 +83,11 @@ object HandheldInput {
         buttonFilter.io.enable := coreFocus
         buttonFilter.io.input := (handheldButtons.asUInt | regSlot0Buttons.asUInt).asTypeOf(new InputBasicV0.Buttons)
         basic.buttons := buttonFilter.io.output
-        (capabilities, entries)
+
+        val rumbleSlots = basic.rumble
+          .map(r => Seq((Mux(r, 255.U(8.W), 0.U(8.W)), 0.U(8.W))))
+          .getOrElse(Seq.empty)
+        (capabilities, entries, rumbleSlots)
       }
 
       case Some(ext: InputExtendedV0) => {
@@ -137,20 +152,88 @@ object HandheldInput {
           analog.rightTrigger := regTriggers(i).rightTrigger
           slot.analog := Mux(docked && coreFocus, analog, 0.U.asTypeOf(new InputExtendedV0.Analog))
         }
-        (capabilities, entries)
+
+        val rumbleSlots = ext.rumble
+          .map(_.map(r => (r.strong, r.weak)).toSeq)
+          .getOrElse(Seq.empty)
+        (capabilities, entries, rumbleSlots)
       }
 
       case Some(x) => throw new CoreException("Unknown 'input': " + x.getClass())
 
-      case None => (0, Seq.empty)
+      case None => (0, Seq.empty, Seq.empty)
+    }
+
+    val (rumbleCapabilities, rumbleEntries) = if (rumbleSlots.nonEmpty) {
+      // Drive the single handheld motor from slot 0 using the stronger channel
+      val rumbleEnabled = coreFocus && vibrateEnable
+      val (slot0Strong, slot0Weak) = rumbleSlots.head
+      when (rumbleEnabled && !docked) {
+        handheldVibrate := Mux(slot0Strong >= slot0Weak, slot0Strong, slot0Weak)
+      }
+
+      // Average each slot over 64 samples per 60 Hz window for host polling
+      val rumbleWindowHz = 60
+      val rumbleSamplesPerWindow = 64
+      val samplePeriod = (clockSystemHz / (rumbleWindowHz * rumbleSamplesPerWindow)).max(1)
+      val samplePrescaler = Counter(samplePeriod)
+      val sampleCounter = Counter(rumbleSamplesPerWindow)
+      val sampleTick = WireDefault(false.B)
+      val windowEnd = WireDefault(false.B)
+      when (!rumbleEnabled) {
+        samplePrescaler.reset()
+        sampleCounter.reset()
+      } .otherwise {
+        sampleTick := samplePrescaler.inc()
+        when (sampleTick) {
+          windowEnd := sampleCounter.inc()
+        }
+      }
+
+      val accShift = log2Ceil(rumbleSamplesPerWindow)
+      val accWidth = 8 + accShift
+      val regRumbleOut = RegInit(VecInit(Seq.fill(4)(0.U.asTypeOf(new RumbleSlotOut))))
+      for (((strong, weak), i) <- rumbleSlots.zipWithIndex) {
+        val regAccStrong = RegInit(0.U(accWidth.W))
+        val regAccWeak = RegInit(0.U(accWidth.W))
+        when (!rumbleEnabled) {
+          regAccStrong := 0.U
+          regAccWeak := 0.U
+          regRumbleOut(i) := 0.U.asTypeOf(new RumbleSlotOut)
+        } .elsewhen (sampleTick) {
+          val nextStrong = regAccStrong + strong
+          val nextWeak = regAccWeak + weak
+          when (windowEnd) {
+            // Shift right by log2(64) to compute the 8-bit window average
+            regRumbleOut(i).strong := nextStrong(accWidth - 1, accShift)
+            regRumbleOut(i).weak := nextWeak(accWidth - 1, accShift)
+            regAccStrong := 0.U
+            regAccWeak := 0.U
+          } .otherwise {
+            regAccStrong := nextStrong
+            regAccWeak := nextWeak
+          }
+        }
+      }
+
+      // Set rumble capability bit and pack 4 slots into 64 bits (0x1500: slots 0-1, 0x1504: slots 2-3)
+      val entries = Seq(
+        0x1500 -> RegisterMap.Entry.r(regRumbleOut.asUInt(31, 0)),
+        0x1504 -> RegisterMap.Entry.r(regRumbleOut.asUInt(63, 32)),
+      )
+      (0x40, entries)
+    } else {
+      (0, Seq.empty)
     }
 
     new HandheldInput(
-      capabilities = capabilities,
-      registerEntries = registerEntries,
+      capabilities = baseCapabilities | rumbleCapabilities,
+      registerEntries = slotEntries ++ rumbleEntries,
       handheldButtons = handheldButtons,
       docked = docked,
       coreFocus = coreFocus,
+      vibrateEnable = vibrateEnable,
+      handheldVibrate = handheldVibrate,
     )
   }
 }

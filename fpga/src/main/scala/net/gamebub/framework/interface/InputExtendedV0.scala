@@ -46,9 +46,21 @@ object InputExtendedV0 {
     val buttons = new Buttons()
     val analog = new Analog()
   }
+
+  /** Per-slot dual-motor rumble intensity (0: off, 255: max) */
+  class Rumble extends Bundle {
+    /** Low-frequency / large motor */
+    val strong = UInt(8.W)
+    /** High-frequency / small motor */
+    val weak = UInt(8.W)
+  }
 }
 
-class InputExtendedV0(val numSlots: Int = 1) extends Bundle {
+class InputExtendedV0(
+  val numSlots: Int = 1,
+  val hasRumble: Boolean = false,
+) extends Bundle {
   require(numSlots >= 1 && numSlots <= 4, "InputExtendedV0.numSlots must be between 1 and 4")
   val slots = Input(Vec(numSlots, new InputExtendedV0.Slot()))
+  val rumble = Option.when(hasRumble)(Output(Vec(numSlots, new InputExtendedV0.Rumble())))
 }

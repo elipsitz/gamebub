@@ -31,7 +31,6 @@ FILES = [
             "PmodV0",
             "SdramV0",
             "SramV0",
-            "VibrateV0",
             "VideoFilterBasicV0",
             "VideoV0",
         ]

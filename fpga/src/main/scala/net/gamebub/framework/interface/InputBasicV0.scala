@@ -20,6 +20,8 @@ object InputBasicV0 {
 }
 
 class InputBasicV0(
+  val hasRumble: Boolean = false,
 ) extends Bundle {
   val buttons = Input(new InputBasicV0.Buttons())
+  val rumble = Option.when(hasRumble)(Output(Bool()))
 }

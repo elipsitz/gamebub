@@ -137,6 +137,7 @@ pub struct InputManager {
 }
 
 const INPUT_CAPS_NUM_SLOTS_MASK: u32 = 0xF;
+const INPUT_CAPS_RUMBLE: u32 = 1 << 6;
 const INPUT_CAPS_EXTENDED: u32 = 1 << 7;
 
 const DEVICE_TYPE_DIGITAL_GAMEPAD: u32 = 2;
@@ -263,8 +264,11 @@ impl InputManager {
 
     pub fn set_core_input_caps(&mut self, caps: u32) {
         let num_slots = ((caps & INPUT_CAPS_NUM_SLOTS_MASK) as usize).min(4);
+        let has_rumble = (caps & INPUT_CAPS_RUMBLE) != 0;
         let is_extended = (caps & INPUT_CAPS_EXTENDED) != 0;
-        log::info!("Core input caps: 0x{caps:08X} (num_slots={num_slots}, ext={is_extended})");
+        log::info!(
+            "Core input caps: 0x{caps:08X} (num_slots={num_slots}, ext={is_extended}, rumble={has_rumble})"
+        );
         self.core_input = if num_slots == 0 {
             CoreInputMode::None
         } else if is_extended {

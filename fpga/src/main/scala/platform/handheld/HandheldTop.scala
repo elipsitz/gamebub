@@ -297,19 +297,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   }
 
   // Input
-  val input = HandheldInput(core.getInterface("input"))
-
-  // Vibrate
-  val coreVibrate = Wire(VibrateV0.Mode())
-  core.getInterface("vibrate") match {
-    case Some(vibrate: VibrateV0) => {
-      coreVibrate := vibrate.mode
-    }
-    case Some(x) => throw new CoreException("Unknown 'vibrate': " + x.getClass())
-    case None => {
-      coreVibrate := VibrateV0.Mode.Off
-    }
-  }
+  val input = HandheldInput(core.getInterface("input"), clockSystemHz)
 
   // Cartridge Port
   core.getInterface("cartridge") match {
@@ -459,7 +447,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     entries = Seq(
       // Read-only informational registers
       // Framework version
-      0x0000 -> RegisterMap.Entry.r("hB0000004".U),
+      0x0000 -> RegisterMap.Entry.r("hB0000005".U),
       // System clock frequency (Hz)
       0x0004 -> RegisterMap.Entry.r(clockSystemHz.U),
       // Video dimensions
@@ -492,6 +480,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
 
       // 0x1200 to 0x12FF: button remap
       // 0x1400 to 0x143F: input slots
+      // 0x1500 to 0x1507: controller rumble
 
       // Framework status
       0x2000 -> RegisterMap.Entry.r(buttonState),
@@ -577,9 +566,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   }
   input.docked := controlDock.docked
   input.coreFocus := controlCoreFocus
-
-  val vibrateEnabled = controlCoreFocus && controlVibrate.enable && !controlDock.docked
-  io.vibrate := RegNext(coreVibrate === VibrateV0.Mode.On && vibrateEnabled)
+  input.vibrateEnable := controlVibrate.enable
 
   //////////////////////////////////
   // Video
@@ -857,6 +844,20 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
     io.dac.wclk := regWordClock
     io.dac.bclk := regBitClock
     io.dac.data := regSample(regSample.getWidth - 1)
+  }
+
+  //////////////////////////////////
+  // Vibrate
+  //////////////////////////////////
+  withClockAndReset (clock = io.clockIn50Mhz, reset = reset50M) {
+    // Handheld vibration PWM (~24.5 kHz, 0 = off, 255 = 100% on)
+    val syncVibrate = XpmCdcHandshake.continuous(clock, input.handheldVibrate)
+    val vibratePrescaler = Counter(8)
+    val vibratePwmCounter = Counter(255)
+    when (vibratePrescaler.inc()) {
+      vibratePwmCounter.inc()
+    }
+    io.vibrate := RegNext(vibratePwmCounter.value < syncVibrate, false.B)
   }
 
   // Overlay (host UI) access.

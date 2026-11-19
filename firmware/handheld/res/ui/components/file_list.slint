@@ -33,7 +33,8 @@ component FileListItem {
         background: is-selected ? #bbb : transparent;
     }
 
-    if (entry.icon != FileIcon.blank): Image {
+    Image {
+        visible: entry.icon != FileIcon.blank;
         x: 1px;
         width: 8px;
         height: 8px;

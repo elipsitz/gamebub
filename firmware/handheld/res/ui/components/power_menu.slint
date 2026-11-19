@@ -11,7 +11,8 @@ export component PowerMenu inherits PopupWindow {
         i-list.focus();
     }
 
-    if Global.current-screen != ScreenId.Game: Rectangle {
+    Rectangle {
+        visible: Global.current-screen != ScreenId.Game;
         width: 100%;
         height: 100%;
         background: black;

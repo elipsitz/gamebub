@@ -11,22 +11,41 @@ use static_cell::{ConstStaticCell, StaticCell};
 use std::path::PathBuf;
 use std::sync::{mpsc, OnceLock};
 use std::time::Duration;
-use std::{cell::RefCell, rc::Rc, sync::mpsc::Receiver, time::Instant};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    sync::mpsc::Receiver,
+    time::Instant,
+};
 
 use ::slint::{
     platform::software_renderer::{LineBufferProvider, RepaintBufferType, TargetPixel},
     PhysicalSize, Timer, TimerMode,
 };
 
-use crate::device::Device;
+use crate::device::{Device, DisplayMode};
 use crate::input::{self, InputManager};
+use crate::kvs;
 pub use crate::ui::state::CoreSettingUiItem;
 use crate::worker;
 pub use state::notifications::Notification;
 
 use self::{slint::Argb1555, slint::MinimalSoftwareWindow, state::UiState};
 
-const IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+const SETUP_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+const DIM_BRIGHTNESS: f32 = 0.10;
+
+fn active_idle_timeout() -> Option<Duration> {
+    if kvs::keys::SETUP_STAGE.get().unwrap_or_default() == 0 {
+        return Some(SETUP_IDLE_TIMEOUT);
+    }
+    match kvs::keys::DIM_TIMEOUT.get().unwrap_or(0) {
+        0 => Some(Duration::from_secs(60)),
+        1 => Some(Duration::from_secs(180)),
+        2 => Some(Duration::from_secs(300)),
+        _ => None,
+    }
+}
 
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "rev1", feature = "rev2"))] {
@@ -128,6 +147,8 @@ pub struct UI {
     state: &'static RefCell<UiState>,
     button_event_detector: buttons::ButtonEventDetector,
     idle_timer: Timer,
+    idle_timeout: Option<Duration>,
+    is_dimmed: Rc<Cell<bool>>,
     home_pressed: bool,
     home_consumed: bool,
 }
@@ -148,11 +169,7 @@ impl UI {
                 .unwrap(); // Start animation (no loop)
         });
 
-        // Set up the idle timer
         let idle_timer = Timer::default();
-        idle_timer.start(TimerMode::Repeated, IDLE_TIMEOUT, || {
-            worker::send(worker::Message::IdleTimerExpired);
-        });
 
         let (sender, receiver) = mpsc::channel::<Message>();
         SENDER.set(sender).expect("UI already initialized");
@@ -174,7 +191,7 @@ impl UI {
         let root = slint::MainWindow::new().unwrap();
         let state = UiState::new(&root, device);
 
-        UI_CELL.init_with(|| UI {
+        let ui = UI_CELL.init_with(|| UI {
             framebuffer,
             lcd_line_buffer,
             window,
@@ -183,9 +200,55 @@ impl UI {
             root,
             button_event_detector: buttons::ButtonEventDetector::new(),
             idle_timer,
+            idle_timeout: None,
+            is_dimmed: Rc::new(Cell::new(false)),
             home_pressed: false,
             home_consumed: false,
-        })
+        });
+        ui.reset_idle_timer();
+        ui
+    }
+
+    fn restore_brightness(&mut self) {
+        if self.is_dimmed.replace(false) {
+            Device::lock().set_brightness(kvs::keys::BRIGHTNESS.get().unwrap());
+        }
+    }
+
+    fn reset_idle_timer(&mut self) {
+        let desired = active_idle_timeout();
+        if desired == self.idle_timeout {
+            if self.idle_timeout.is_some() {
+                self.idle_timer.restart();
+            }
+            return;
+        }
+
+        self.idle_timeout = desired;
+        match desired {
+            Some(timeout) => {
+                let is_dimmed = self.is_dimmed.clone();
+                self.idle_timer
+                    .start(TimerMode::SingleShot, timeout, move || {
+                        if kvs::keys::SETUP_STAGE.get().unwrap_or_default() == 0 {
+                            worker::send(worker::Message::IdleTimerExpired);
+                            return;
+                        }
+                        let mut device = Device::lock();
+                        if device.get_display_mode() == DisplayMode::Internal {
+                            let brightness = kvs::keys::BRIGHTNESS.get().unwrap();
+                            let dimmed = brightness.min(DIM_BRIGHTNESS);
+                            if dimmed < brightness {
+                                device.set_brightness(dimmed);
+                                is_dimmed.set(true);
+                            }
+                        }
+                    });
+            }
+            None => {
+                self.idle_timer.stop();
+            }
+        }
     }
 
     fn handle_button_event(&mut self, event: ButtonEvent) {
@@ -248,8 +311,9 @@ impl UI {
                 pending_message = self.message_queue.try_recv().ok();
             }
             for button_event in self.button_event_detector.update(None) {
+                self.restore_brightness();
                 self.handle_button_event(button_event);
-                self.idle_timer.restart();
+                self.reset_idle_timer();
             }
 
             ::slint::platform::update_timers_and_animations();
@@ -300,10 +364,11 @@ impl UI {
     fn dispatch_message(&mut self, message: Message) {
         match message {
             Message::Button(state) => {
-                self.idle_timer.restart();
+                self.restore_brightness();
                 for button_event in self.button_event_detector.update(Some(state)) {
                     self.handle_button_event(button_event);
                 }
+                self.reset_idle_timer();
             }
             Message::BatteryStatus { level } => {
                 self.state.borrow_mut().update_battery_level(level);
@@ -344,12 +409,16 @@ impl UI {
                     .queue_notification(self.state, notification);
             }
             Message::DockBegin { serial, firmware } => {
+                self.restore_brightness();
+                self.reset_idle_timer();
                 let backend = self.root.global::<slint::Backend>();
                 backend.set_dock_serial(serial.into());
                 backend.set_dock_firmware_version(firmware.into());
                 backend.set_docked(true);
             }
             Message::DockEnd => {
+                self.restore_brightness();
+                self.reset_idle_timer();
                 self.root.global::<slint::Backend>().set_docked(false);
             }
             Message::Screenshot => {

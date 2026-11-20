@@ -151,7 +151,6 @@ fn dispatch(message: Message) {
                 log::warn!("Idle during setup, powering off.");
                 Device::lock().power_off();
             }
-            // TODO: Dim the screen temporarily.
         }
         Message::FetchCoreList => CoreManager::lock().list_cores(),
         Message::RunCore(id) => CoreManager::lock().run_core(&id, false),

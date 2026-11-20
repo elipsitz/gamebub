@@ -57,6 +57,9 @@ pub static DOCK_USE_BUILTIN_SCREEN: KvsKey<bool> = KvsKey::new_with_default("doc
 /// Whether power-off is actually deep sleep.
 pub static DEEP_SLEEP: KvsKey<bool> = KvsKey::new_with_default("deep-sleep", false);
 
+/// Screen dim inactivity timeout (0 = 1m, 1 = 3m, 2 = 5m, 3 = Never).
+pub static DIM_TIMEOUT: KvsKey<i32> = KvsKey::new_with_default("dim-timeout", 0);
+
 pub fn flush_all() {
     SETUP_STAGE.flush();
     UPTIME.flush();
@@ -77,4 +80,5 @@ pub fn flush_all() {
     DOCK_SWAP_ABXY.flush();
     DOCK_USE_BUILTIN_SCREEN.flush();
     DEEP_SLEEP.flush();
+    DIM_TIMEOUT.flush();
 }

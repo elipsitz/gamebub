@@ -85,6 +85,11 @@ mod settings {
                 name: "Require long press to power on (*)",
                 key: &keys::DEEP_SLEEP,
             },
+            Entry::List {
+                name: "Auto-dim screen on inactivity",
+                key: &keys::DIM_TIMEOUT,
+                choices: &["1 min", "3 min", "5 min", "Never"],
+            },
         ],
     };
 

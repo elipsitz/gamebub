@@ -30,6 +30,9 @@ pub trait CoreHandler {
     fn get_file_size(&mut self, id: u16) -> Option<u32>;
 
     /// Called after file is written, to write any additional data.
+    ///
+    /// Implementations that append data must leave `file` positioned at the end
+    /// of the written data so the caller can truncate any stale tail bytes.
     fn on_after_file_save(&mut self, id: u16, file: &mut File) -> Result<(), String>;
 
     /// Temporary: as Bitstream trait

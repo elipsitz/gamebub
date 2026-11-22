@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufWriter, Read, Write},
+    io::{BufWriter, Read, Seek, Write},
     ops::DerefMut as _,
     time::{Duration, Instant},
 };
@@ -261,14 +261,23 @@ impl CoreManager {
                 file_size = override_size;
             }
 
-            let mut file = File::create(path)
+            // Overwrite in place and truncate afterward if the file shrank.
+            // `File::create` truncates up front, which frees and reallocates
+            // the file's FAT clusters on every save.
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(path)
                 .map_err(|_| FailedSaveFile(info.label.to_string(), "Open failed".to_string()))?;
+            let old_size = file.metadata().map(|m| m.len()).unwrap_or(u64::MAX);
             let mut scratch = crate::bitstream::SCRATCH.take().expect("scratch buffer");
             let buf = scratch.deref_mut();
             let mut address: u32 = info.address;
             let mut bytes_left = file_size as usize;
 
             let start_time = Instant::now();
+            let mut write_duration = Duration::ZERO;
             while bytes_left > 0 {
                 let to_read = bytes_left.min(buf.len());
                 let data = &mut buf[0..to_read];
@@ -279,16 +288,19 @@ impl CoreManager {
                 let _ = Device::lock()
                     .fpga
                     .spi_read(max_clock, command, address, data);
-                file.write(data).map_err(|_| {
+                let write_start = Instant::now();
+                file.write_all(data).map_err(|_| {
                     FailedSaveFile(info.label.to_string(), "Write failed".to_string())
                 })?;
+                write_duration += write_start.elapsed();
                 address += to_read as u32;
                 bytes_left -= to_read;
             }
             log::info!(
-                "Saved {} bytes in {}ms",
+                "Saved {} bytes in {}ms ({} ms write)",
                 file_size,
-                start_time.elapsed().as_millis() as u32
+                start_time.elapsed().as_millis() as u32,
+                write_duration.as_millis() as u32
             );
 
             self.run_core_command(
@@ -300,6 +312,17 @@ impl CoreManager {
                 core_handler
                     .on_after_file_save(info.id, &mut file)
                     .map_err(|e| FailedSaveFile(info.label.to_string(), e))?;
+            }
+            // Truncate after `on_after_file_save` so handlers that append extra
+            // data (such as GB/GBA RTC state) keep the existing tail cluster.
+            let new_size = file
+                .stream_position()
+                .map_err(|e| FailedSaveFile(info.label.to_string(), e.to_string()))?
+                .max(file_size as u64);
+            if old_size > new_size {
+                file.set_len(new_size).map_err(|_| {
+                    FailedSaveFile(info.label.to_string(), "Truncate failed".to_string())
+                })?;
             }
         }
         Ok(())

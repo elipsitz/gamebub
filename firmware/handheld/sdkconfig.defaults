@@ -22,9 +22,10 @@ CONFIG_FATFS_LFN_HEAP=y
 CONFIG_FATFS_MAX_LFN=255
 CONFIG_FATFS_API_ENCODING_UTF_8=y
 
-# Rapid random seeking in large read-only files
+# Rapid random seeking in large read-only files. The cluster link map holds
+# (size - 2) / 2 fragments before falling back to walking the FAT chain.
 CONFIG_FATFS_USE_FASTSEEK=y
-CONFIG_FATFS_FAST_SEEK_BUFFER_SIZE=64
+CONFIG_FATFS_FAST_SEEK_BUFFER_SIZE=256
 
 CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
 CONFIG_FLASHMODE_QIO=y

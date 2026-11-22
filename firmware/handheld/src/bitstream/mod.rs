@@ -1,6 +1,5 @@
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::BufReader;
 use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
@@ -44,7 +43,7 @@ pub fn program_fpga(path: &Path) {
     let mut bitstream: Box<dyn std::io::Read> = if path.extension() == Some(OsStr::new("hs")) {
         Box::new(heatshrink_decompress_stream(file))
     } else if path.extension() == Some(OsStr::new("bit")) {
-        Box::new(BufReader::with_capacity(512, file))
+        Box::new(file)
     } else {
         panic!("Unsupported bitstream extension");
     };

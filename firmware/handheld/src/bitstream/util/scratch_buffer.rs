@@ -4,6 +4,9 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+// 4-byte aligned with `data` first so ESP-IDF's SDMMC driver can use
+// multi-sector DMA instead of falling back to single-sector bounce transfers.
+#[repr(C, align(4))]
 pub struct ScratchBuffer<const N: usize> {
     data: UnsafeCell<[u8; N]>,
     used: AtomicBool,
